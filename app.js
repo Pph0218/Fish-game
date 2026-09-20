@@ -562,14 +562,14 @@
     { id: "billion_tycoon", name: "十亿航迹", description: "累计获得 1,000,000,000 金币", reward: "金币收益 +50%", rewardData: { gold: 0.5 }, check: (s) => s.totalGoldEarned >= 1000000000 },
     { id: "tree_complete", name: "八十星图", description: "将 80 个天赋节点全部升至满级", reward: "自动速度 +50%，金币收益 +25%", rewardData: { auto: 0.5, gold: 0.25 }, check: (s) => allNodes.every((node) => (s.upgrades[node.id] || 0) >= node.max) },
     { id: "three_ultimates", name: "深海支配者", description: "激活三个终极技能", reward: "金币收益 +50%", rewardData: { gold: 0.5 }, check: (s) => ["sky_net", "ocean_fleet", "school_beacon"].every((id) => (s.upgrades[id] || 0) >= 1) },
-    { id: "first_ascension", name: "第一次跃迁", description: "完成 1 次深海跃迁", reward: "金币收益 +25%", rewardData: { gold: 0.25 }, check: (s) => s.ascension.count >= 1 },
-    { id: "ascension_three", name: "循环航路", description: "完成 3 次深海跃迁", reward: "自动速度 +35%", rewardData: { auto: 0.35 }, check: (s) => s.ascension.count >= 3 },
-    { id: "ascension_ten", name: "深海轮回", description: "完成 10 次深海跃迁", reward: "金币收益 +75%", rewardData: { gold: 0.75 }, check: (s) => s.ascension.count >= 10 },
+    { id: "first_ascension", name: "第一次跃迁", description: "完成 1 次深渊跃迁", reward: "金币收益 +25%", rewardData: { gold: 0.25 }, check: (s) => s.ascension.count >= 1 },
+    { id: "ascension_three", name: "循环航路", description: "完成 3 次深渊跃迁", reward: "自动速度 +35%", rewardData: { auto: 0.35 }, check: (s) => s.ascension.count >= 3 },
+    { id: "ascension_ten", name: "深海轮回", description: "完成 10 次深渊跃迁", reward: "金币收益 +75%", rewardData: { gold: 0.75 }, check: (s) => s.ascension.count >= 10 },
     { id: "collector_12", name: "装备收藏家", description: "收藏 12 件不同装备", reward: "鱼舱容量 +50", rewardData: { capacity: 50 }, check: (s) => Object.keys(s.equipment.owned).length >= 12 },
     { id: "legendary_equipment", name: "传说铸装", description: "获得一件传说品质装备", reward: "金币收益 +25%", rewardData: { gold: 0.25 }, check: (s) => Object.values(s.equipment.owned).some((item) => item.rarity === "legendary") },
     { id: "set_four", name: "四件共鸣", description: "装备 4 件同套装装备", reward: "自动速度 +50%，金币收益 +25%", rewardData: { auto: 0.5, gold: 0.25 }, check: (s) => { const counts = {}; Object.values(s.equipment.equipped).forEach((id) => { const item = id && s.equipment.owned[id]; if (item) counts[item.set] = (counts[item.set] || 0) + 1; }); return Object.values(counts).some((count) => count >= 4); } },
     { id: "trillion_gold", name: "万亿航迹", description: "累计获得 1,000,000,000,000 金币", reward: "金币收益 +100%", rewardData: { gold: 1 }, check: (s) => s.totalGoldEarned >= 1000000000000 },
-    { id: "crystal_keeper", name: "结晶守望者", description: "累计拥有 1,000 枚深海结晶", reward: "自动速度 +75%", rewardData: { auto: 0.75 }, check: (s) => s.ascension.crystals >= 1000 }
+    { id: "crystal_keeper", name: "结晶守望者", description: "累计拥有 1,000 枚深渊结晶", reward: "自动速度 +75%", rewardData: { auto: 0.75 }, check: (s) => s.ascension.crystals >= 1000 }
   ];
 
   const EQUIPMENT_SLOTS = {
@@ -966,7 +966,7 @@
     state.profile = result.profile;
     state.profileSetupSeen = true;
     saveGame(true);
-    showToast("舰长档案已建立", `${state.profile.nickname}，欢迎进入深海舰长日志。`, "gold");
+    showToast("调查员档案已建立", `${state.profile.nickname}，欢迎进入深海舰长日志。`, "gold");
     renderModal();
   }
 
@@ -1081,7 +1081,7 @@
       { id: "sell", type: "sell", title: "出售渔获获得金币", target: 1500 * Math.max(1, state.unlockedZones.length), reward: { crystals: 5, alloy: 5 } },
       { id: "process", type: "process", title: "加工渔获数量", target: 20 + Math.floor(seededValue(date + "c") * 60), reward: { crystals: 4, alloy: 6 } },
       { id: "hotspot", type: "hotspot", title: "命中声呐热点", target: 3 + Math.floor(seededValue(date + "d") * 4), reward: { crystals: 6, alloy: 8 } },
-      { id: "boss", type: "boss", title: "击败区域首领", target: 1, reward: { crystals: 10, alloy: 12 } }
+      { id: "boss", type: "boss", title: "击败巨兽信号", target: 1, reward: { crystals: 10, alloy: 12 } }
     ];
     state.contracts.tasks = pool.sort((a, b) => seededValue(date + a.id) - seededValue(date + b.id)).slice(0, 3);
   }
@@ -1260,7 +1260,7 @@
       const remaining = getGearSkillCooldownRemaining(skillId);
       const active = gearSkillBuffs[skillId] && gearSkillBuffs[skillId].until > Date.now();
       return `<button type="button" class="gear-skill-button ${active ? "active" : ""}" data-gear-skill="${skillId}" ${remaining > 0 ? "disabled" : ""} style="--skill-color:${skill.color}"><b>${skill.icon}</b><span><strong>${skill.name}</strong><small>${remaining > 0 ? `${remaining.toFixed(1)}s` : active ? "ACTIVE" : ["R", "T", "Y"][selected.indexOf(skillId)] || "技能"}</small></span></button>`;
-    }).join("") : `<span class="gear-skill-empty">装备带主动技的装备后在此释放 · <kbd>G</kbd> 打开装备舱</span>`;
+    }).join("") : `<span class="gear-skill-empty">装备带主动技的装备后在此释放 · <kbd>G</kbd> 打开舰载装备</span>`;
     if (!(state.equipment.skillLoadout || []).length && equipped.length) state.equipment.skillLoadout = equipped.slice(0, 3);
     dom.gearSkillHud.parentElement?.classList.toggle("empty", selected.length === 0);
     const activeSlot = Object.entries(EQUIPMENT_SLOTS).find(([slot]) => {
@@ -1271,7 +1271,7 @@
       const item = state.equipment.owned[state.equipment.equipped[activeSlot[0]]];
       emitTide("tide:gear-aura", { slot: activeSlot[0], rarity: item.rarity, active: selected.length > 0 });
     }
-    dom.gearSkillMode.textContent = (state.equipment?.skillMode || "auto") === "auto" ? "自动释放" : "手动释放";
+    dom.gearSkillMode.textContent = (state.equipment?.skillMode || "auto") === "auto" ? "协同释放" : "手动协同";
   }
   function renderSonarHotspots() {
     if (!dom.sonarLayer) return;
@@ -1487,7 +1487,7 @@
     flashScreen("ultimate");
     updateAllUI();
     saveGame(true);
-    showToast("深海跃迁完成", `获得 ${reward} 枚深海结晶，收藏、装备、科研与协议已保留。`, "gold");
+    showToast("深渊跃迁完成", `获得 ${reward} 枚深渊结晶，收藏、装备、科研与协议已保留。`, "gold");
   }
 
   function buyResearch(key) {
@@ -1496,7 +1496,7 @@
     if (!def || level >= 10) return;
     const cost = Math.ceil(8 * Math.pow(1.55, level));
     if (state.ascension.crystals < cost) {
-      showToast("深海结晶不足", `升级需要 ${cost} 枚结晶。`, "error");
+      showToast("深渊结晶不足", `升级需要 ${cost} 枚结晶。`, "error");
       return;
     }
     state.ascension.crystals -= cost;
@@ -1512,7 +1512,7 @@
     const rarity = EQUIPMENT_RARITIES[item.rarity] || EQUIPMENT_RARITIES.common;
     const cost = Math.ceil((12 + item.level * 16) * rarity.multiplier);
     if (state.equipment.alloy < cost) {
-      showToast("深海合金不足", `强化需要 ${cost} 合金。`, "error");
+      showToast("深渊合金不足", `强化需要 ${cost} 合金。`, "error");
       return;
     }
     state.equipment.alloy -= cost;
@@ -2609,7 +2609,7 @@
     }
 
     if (activeModal.type === "encyclopedia") {
-      title = "鱼类图鉴";
+      title = "生物图谱";
       subtitle = `已发现 ${getDiscoveredCount()} / ${species.length} 种鱼类，捕获后自动点亮。`;
       body = zones.map((zone) => {
         const fishList = species.filter((fish) => fish.zone === zone.id);
@@ -2681,7 +2681,7 @@
       subtitle = boss ? `第 ${boss.phase} 阶段 · ${def.phases[boss.phase - 1]} · 当前进度 ${Math.round((phaseProgress / phaseGoal) * 100)}%。` : `当前海域捕获成长 ${formatInteger(progress.bossCharge)} / ${formatInteger(def.threshold)}。`;
       body = `<div class="boss-card ${boss ? "active" : ""}">
         <div class="boss-emblem">${boss ? boss.icon : "☠"}</div>
-        <div class="boss-copy"><small>区域首领协议</small><h3>${boss ? boss.name : "首领蓄能中"}</h3><p>${boss ? "第一阶段追踪弱点，第二阶段破甲，第三阶段抓住收网窗口。失误只会延长窗口，不会回退已有进度。" : "持续捕获当前海域鱼类，熟练度达到阈值后将出现首领。"}</p></div>
+        <div class="boss-copy"><small>巨兽信号协议</small><h3>${boss ? boss.name : "首领蓄能中"}</h3><p>${boss ? "第一阶段追踪弱点，第二阶段破甲，第三阶段抓住收网窗口。失误只会延长窗口，不会回退已有进度。" : "持续捕获当前海域鱼类，熟练度达到阈值后将出现首领。"}</p></div>
         <div class="boss-progress"><i style="width:${boss ? Math.round((phaseProgress / phaseGoal) * 100) : Math.round((progress.bossCharge / def.threshold) * 100)}%"></i></div>
         <div class="boss-metrics">
           <span><small>${boss ? "阶段进度" : "首领蓄能"}</small><strong>${boss ? `${Math.round((phaseProgress / phaseGoal) * 100)}%` : `${Math.round((progress.bossCharge / def.threshold) * 100)}%`}</strong></span>
@@ -2695,7 +2695,7 @@
 
     if (activeModal.type === "profile") {
       const configured = Boolean(window.LeaderboardBridge?.isConfigured?.());
-      title = "舰长档案";
+      title = "调查员档案";
       subtitle = configured ? "档案用于在线排行和成绩同步，不会上传完整本地存档。" : "当前为离线档案模式；配置 Supabase 后即可参与在线排行。";
       if (!state.profile) {
         body = `<div class="profile-hero"><div class="profile-avatar">⚓</div><div><small>创建唯一舰长名</small><h3>写下你的深海呼号</h3><p>昵称允许 2–12 个中文、字母、数字或下划线，创建后 3 天内不可修改。</p></div></div><label class="field-label">舰长昵称<input id="profileNicknameInput" maxlength="12" autocomplete="nickname" placeholder="例如：奶龙666"></label><p class="muted">离线时仍可创建本地档案，联网后若昵称已被占用会要求重新选择。</p>`;
@@ -2713,7 +2713,7 @@
       const cache = state.leaderboard?.cache?.[board] || { entries: [], offline: true, fetchedAt: 0 };
       const entries = Array.isArray(cache.entries) ? cache.entries : [];
       const myProfile = state.profile;
-      title = "舰队排行";
+      title = "深潜排行";
       subtitle = cache.offline ? "当前显示离线缓存，联网后自动刷新。" : `更新于 ${cache.fetchedAt ? formatDuration((Date.now() - cache.fetchedAt) / 1000) + "前" : "刚刚"}`;
       const tabBar = `<div class="leaderboard-tabs">${boards.map(([id,label]) => `<button type="button" class="${board === id ? "active" : ""}" data-leaderboard-board="${id}">${label}</button>`).join("")}</div>`;
       const rows = entries.length ? entries.map((entry, index) => {
@@ -2728,7 +2728,7 @@
       footer = `<button class="modal-button primary" type="button" data-leaderboard-refresh>刷新榜单</button>`;
     }
     if (activeModal.type === "credits") {
-      title = "素材鸣谢";
+      title = "档案鸣谢";
       subtitle = "本地打包的 CC0、CC-BY 与 MIT 素材来源。";
       body = `
         <div class="credits-list">
@@ -2746,8 +2746,8 @@
         </div>`;
     }
     if (activeModal.type === "equipment") {
-      title = "深海装备舱";
-      subtitle = `深海合金 ${state.equipment.alloy} · 已发现 ${Object.keys(state.equipment.discovered || {}).length} / 32 种装备`;
+      title = "深海舰载装备";
+      subtitle = `深渊合金 ${state.equipment.alloy} · 已发现 ${Object.keys(state.equipment.discovered || {}).length} / 32 种装备`;
       const tab = state.ui.equipmentTab || "equipped";
       const tabs = [["equipped", "当前装备"], ["collection", "收藏库"], ["skills", "技能配置"], ["codex", "装备图鉴"]];
       const tabBar = `<div class="equipment-tabs">${tabs.map(([id, label]) => `<button type="button" class="${tab === id ? "active" : ""}" data-equip-tab="${id}">${label}</button>`).join("")}</div>`;
@@ -2777,7 +2777,7 @@
         }).join("")}</div></div>` : `<p class="muted">尚未获得装备。稀有鱼、传说鱼、首领和漂流宝箱均有机会掉落。</p>`;
       } else if (tab === "skills") {
         const equipped = getEquippedActiveSkills();
-        panel = `<div class="skill-config-head"><div><small>当前模式</small><strong>${state.equipment.skillMode === "manual" ? "手动释放" : "自动释放"}</strong><p>手动键位 R / T / Y；自动模式冷却时间增加 15%。</p></div><button class="modal-button" data-toggle-skill-mode>${state.equipment.skillMode === "manual" ? "切换自动" : "切换手动"}</button></div><div class="skill-loadout">${Object.entries(GEAR_SKILLS).map(([id, skill]) => {
+        panel = `<div class="skill-config-head"><div><small>当前模式</small><strong>${state.equipment.skillMode === "manual" ? "手动协同" : "协同释放"}</strong><p>手动键位 R / T / Y；自动模式冷却时间增加 15%。</p></div><button class="modal-button" data-toggle-skill-mode>${state.equipment.skillMode === "manual" ? "切换自动" : "切换手动"}</button></div><div class="skill-loadout">${Object.entries(GEAR_SKILLS).map(([id, skill]) => {
           const available = equipped.includes(id);
           const selected = (state.equipment.skillLoadout || []).includes(id);
           return `<article class="skill-card ${selected ? "selected" : ""} ${available ? "" : "locked"}" style="--skill-color:${skill.color}"><div class="skill-icon">${skill.icon}</div><div><small>主动技 · 冷却 ${skill.cooldown}s</small><strong>${skill.name}</strong><p>${skill.description}</p></div><button class="modal-button" data-skill-loadout="${id}" ${available ? "" : "disabled"}>${selected ? "已装配" : available ? "装配" : "未拥有对应装备"}</button></article>`;
@@ -2792,8 +2792,8 @@
     }
     if (activeModal.type === "ascension") {
       const reward = getAscensionReward();
-      title = "深海跃迁";
-      subtitle = `已完成 ${state.ascension.count} 次跃迁，拥有 ${state.ascension.crystals} 枚深海结晶。`;
+      title = "深渊跃迁";
+      subtitle = `已完成 ${state.ascension.count} 次跃迁，拥有 ${state.ascension.crystals} 枚深渊结晶。`;
       const researchCards = Object.entries(RESEARCH_DEFS).map(([key, def]) => {
         const level = getResearchLevel(key);
         const cost = Math.ceil(8 * Math.pow(1.55, level));

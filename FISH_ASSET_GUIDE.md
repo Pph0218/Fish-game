@@ -101,12 +101,15 @@
 | 归墟龙鲸 | `void_whale` | rare | `assets/fish/custom/void_whale.png` |
 | 创世星鲸 | `genesis_whale` | legendary | `assets/fish/custom/genesis_whale.png` |
 
-把图片放到 `assets/fish/custom/` 后，在 `assets/fish/custom-manifest.js` 中登记对应鱼种，例如：
+当前默认鱼形来自 `assets/fish/singles/`，是高质量 3D 模型烘焙出的单帧透明精灵。把图片放到 `assets/fish/custom/` 后，在 `assets/fish/custom-manifest.js` 中登记对应鱼种：
 
 ```js
 window.TIDE_CUSTOM_FISH_ASSETS = {
-  silver_scad: "assets/fish/custom/silver_scad.png"
+  silver_scad: { src: "assets/fish/custom/silver_scad.png", atlas: false },
+  sardine: { src: "assets/fish/custom/sardine-atlas.png", atlas: true }
 };
 ```
+
+`atlas: false` 表示单张静态图；`atlas: true` 表示 4×2 精灵表。
 
 未登记图片的鱼种会继续使用当前内置精灵模板。替换素材不会修改捕鱼、价格、稀有度或存档逻辑。

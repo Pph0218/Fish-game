@@ -51,9 +51,11 @@
       if (textures[key]) return Promise.resolve(textures[key]);
       if (loading[key]) return loading[key];
       loading[key] = (async () => {
-        const data = customSources[key] || source[key];
+        const custom = customSources[key];
+        const data = typeof custom === "string" ? custom : custom?.src || source[key];
         if (data) {
           const texture = configureTexture(await textureLoader.loadAsync(data));
+          texture.userData.atlas = custom ? (typeof custom === "object" ? custom.atlas !== false : true) : true;
           textures[key] = texture;
           return texture;
         }
@@ -94,15 +96,17 @@
 
   function create(key, color, assetKey = key) {
     const base = textures[assetKey] || textures[key] || makeFallback(key, color);
+    const custom = customSources[assetKey];
+    const isAtlas = custom ? (typeof custom === "object" ? custom.atlas !== false : true) : true;
     const map = base.clone();
-    map.repeat.set(.25, .5);
+    map.repeat.set(isAtlas ? .25 : 1, isAtlas ? .5 : 1);
     map.offset.set(0, 0);
     map.needsUpdate = true;
     const material = new THREE.SpriteMaterial({
       map,
       color: new THREE.Color(0xffffff),
       transparent: true,
-      alphaTest: .07,
+      alphaTest: .01,
       depthWrite: false,
       toneMapped: false
     });
@@ -113,6 +117,7 @@
     sprite.userData.baseSpriteX = footprint[0];
     sprite.userData.baseSpriteY = footprint[1];
     sprite.userData.frame = 0;
+    sprite.userData.atlas = isAtlas;
     return sprite;
   }
 
@@ -123,7 +128,10 @@
     const frame = Math.floor(time * speed * frameRate + (state.phase || 0) * 2) % 8;
     const row = state.mode === "turn" || state.mode === "fleeing" || state.mode === "captured" || state.mode === "caught" ? 1 : 0;
     sprite.userData.frame = frame;
-    sprite.material.map.offset.set((frame % 4) * .25, row * .5);
+    if (sprite.userData.atlas) sprite.material.map.offset.set((frame % 4) * .25, row * .5);
+    else sprite.material.map.offset.set(0, 0);
+    sprite.material.map.matrixAutoUpdate = true;
+    sprite.material.map.updateMatrix();
     sprite.material.rotation = Math.sin(time * (1.3 + speed) + (state.phase || 0)) * (state.mode === "captured" ? .18 : .055);
     const direction = state.direction < 0 ? -1 : 1;
     sprite.scale.x = sprite.userData.baseSpriteX * direction;

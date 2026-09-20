@@ -4362,3 +4362,163 @@ body {
     min-height: 22px;
   }
 }
+/* Deepsea myth terminal: unified theme layer */
+:root {
+  --abyss-0: #01050c;
+  --abyss-1: #020b1b;
+  --abyss-2: #04152d;
+  --abyss-3: #071f3b;
+  --deep-teal: #68d7d2;
+  --deep-teal-soft: rgba(104, 215, 210, .24);
+  --deep-amber: #d3a65f;
+  --deep-violet: #8f77c8;
+  --deep-danger: #b86070;
+  --deep-text: #e7f5f4;
+  --deep-muted: rgba(202, 226, 229, .64);
+}
+
+body {
+  color: var(--deep-text) !important;
+  background:
+    radial-gradient(circle at 12% -8%, rgba(65, 141, 151, .16), transparent 34%),
+    radial-gradient(circle at 88% 5%, rgba(76, 56, 121, .18), transparent 30%),
+    linear-gradient(155deg, var(--abyss-0) 0%, var(--abyss-1) 38%, var(--abyss-2) 72%, var(--abyss-3) 100%) !important;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .23;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(122, 212, 218, .025) 3px 4px),
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,.09) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 80% 70%, rgba(117,229,222,.08) 0 1px, transparent 1.5px);
+  background-size: 100% 4px, 47px 53px, 61px 67px;
+  mix-blend-mode: screen;
+}
+
+.topbar,
+.rail-card,
+.top-status-strip > *,
+.bottom-dock,
+.upgrade-drawer,
+.modal-shell,
+.keyboard-hint,
+.cast-console,
+.combo-hud,
+.boss-hud {
+  color: var(--deep-text) !important;
+  border-color: rgba(132, 221, 222, .19) !important;
+  background-color: rgba(2, 14, 30, .43) !important;
+  background-image:
+    radial-gradient(circle at var(--glass-x, 18%) var(--glass-y, 0%), rgba(170, 239, 242, .11), transparent 35%),
+    linear-gradient(145deg, rgba(7, 32, 55, .5), rgba(2, 11, 25, .40)) !important;
+  box-shadow:
+    0 22px 60px rgba(0, 3, 12, .42),
+    inset 0 1px 0 rgba(236, 255, 255, .15),
+    inset 0 -1px 0 rgba(77, 190, 198, .07),
+    0 0 0 1px rgba(75, 172, 188, .025) !important;
+  backdrop-filter: blur(32px) saturate(158%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(158%);
+}
+
+.topbar::after,
+.modal-shell::after,
+.bottom-dock::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 0 42%, rgba(169, 244, 242, .055) 50%, transparent 58%);
+}
+
+#seaPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: .24;
+  background-image:
+    linear-gradient(rgba(86, 193, 201, .08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(86, 193, 201, .08) 1px, transparent 1px),
+    radial-gradient(circle at 50% 48%, transparent 0 21%, rgba(102, 222, 220, .08) 21.2% 21.5%, transparent 21.8%),
+    radial-gradient(circle at 50% 48%, transparent 0 33%, rgba(102, 222, 220, .06) 33.2% 33.5%, transparent 33.8%);
+  background-size: 48px 48px, 48px 48px, 100% 100%, 100% 100%;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), transparent 88%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), transparent 88%);
+}
+
+.brand h1,
+.modal-header h2,
+.rail-card h2,
+.rail-card h3,
+.ecology-heading strong,
+.sea-hud-stats b,
+.zone-tab strong {
+  color: #efffff !important;
+  text-shadow: 0 0 18px rgba(90, 220, 215, .16);
+}
+
+.section-kicker,
+.eyebrow,
+.ecology-heading span,
+.zone-tab small,
+.sea-hud-stats span {
+  color: #75c9ca !important;
+  letter-spacing: .12em;
+}
+
+.primary-action,
+.cast-console-button,
+.modal-button.primary {
+  color: #04131c !important;
+  border-color: rgba(180, 255, 248, .6) !important;
+  background: linear-gradient(135deg, #bdf8ef, #55c9c7 62%, #3b9ca5) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.72), 0 0 22px rgba(70, 209, 205, .2) !important;
+}
+
+.secondary-action,
+.modal-button,
+.dock-actions button,
+.equipment-tabs button,
+.leaderboard-tabs button {
+  color: #dff7f6 !important;
+  border-color: rgba(117, 209, 211, .19) !important;
+  background: rgba(4, 25, 43, .48) !important;
+}
+
+.zone-tab.active,
+.branch-master.active,
+.equipment-tabs button.active,
+.leaderboard-tabs button.active {
+  color: #03151b !important;
+  border-color: rgba(180, 255, 248, .65) !important;
+  background: linear-gradient(135deg, #b9f6ed, #58cbc9) !important;
+  box-shadow: 0 8px 26px rgba(60, 202, 198, .18) !important;
+}
+
+.cast-console-event,
+.combo-hud,
+.gear-skill-button,
+.gear-skill-mode {
+  border-color: rgba(109, 211, 211, .19) !important;
+}
+
+.gear-skill-button.active,
+.boss-hud {
+  box-shadow: 0 0 24px rgba(211, 166, 95, .17), inset 0 1px 0 rgba(255,255,255,.14) !important;
+}
+
+button:not(:disabled):hover {
+  border-color: rgba(153, 238, 235, .42) !important;
+}
+
+@media (max-width: 760px) {
+  body::before { opacity: .16; }
+  #seaPanel::before { opacity: .18; background-size: 38px 38px, 38px 38px, 100% 100%, 100% 100%; }
+}
