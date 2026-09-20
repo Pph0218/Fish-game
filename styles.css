@@ -5284,3 +5284,178 @@ button:not(:disabled):hover {
     padding: 11px;
   }
 }
+
+.boss-record-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.boss-record-strip > span {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(138, 224, 244, .13);
+  border-radius: 13px;
+  background: rgba(5, 18, 35, .42);
+}
+
+.boss-record-strip small,
+.boss-record-strip strong {
+  display: block;
+}
+
+.boss-record-strip small {
+  color: rgba(174, 219, 229, .62);
+  font-size: 8px;
+}
+
+.boss-record-strip strong {
+  margin-top: 4px;
+  color: #eaffff;
+  font-size: 10px;
+}
+
+.boss-material-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.boss-material-strip > span {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 3px 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--material-color, #67e8f9) 32%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--material-color, #67e8f9) 10%, rgba(5, 18, 35, .48));
+}
+
+.boss-material-strip i {
+  grid-row: 1 / span 2;
+  color: var(--material-color, #67e8f9);
+  font-size: 19px;
+  font-style: normal;
+}
+
+.boss-material-strip small {
+  color: rgba(204, 237, 244, .67);
+  font-size: 8px;
+}
+
+.boss-material-strip strong {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  color: #f0ffff;
+  font-size: 16px;
+}
+
+.forge-note {
+  margin: 0 0 12px;
+  color: rgba(201, 232, 239, .7);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.boss-forge-list {
+  display: grid;
+  gap: 9px;
+}
+
+.forge-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(182, 140, 255, .2);
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(91, 52, 142, .14), rgba(5, 17, 34, .44));
+}
+
+.forge-card.owned {
+  border-color: rgba(255, 211, 106, .34);
+  background: linear-gradient(145deg, rgba(126, 83, 30, .14), rgba(5, 17, 34, .46));
+}
+
+.forge-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.forge-card-head > span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  color: var(--forge-color, #ffd36a);
+  background: color-mix(in srgb, var(--forge-color, #ffd36a) 13%, transparent);
+  font-size: 20px;
+}
+
+.forge-card-head small,
+.forge-card-head h3 {
+  display: block;
+  margin: 0;
+}
+
+.forge-card-head small {
+  color: rgba(185, 215, 229, .62);
+  font-size: 8px;
+}
+
+.forge-card-head h3 {
+  margin-top: 3px;
+  color: #f5efff;
+  font-size: 12px;
+}
+
+.forge-card-head b {
+  margin-left: auto;
+  color: #ffd36a;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.forge-card > p {
+  grid-column: 1;
+  margin: 0;
+  color: rgba(209, 232, 241, .7);
+  font-size: 10px;
+}
+
+.forge-cost {
+  grid-column: 1;
+  color: #adf5ef;
+  font-size: 9px;
+}
+
+.forge-card > button {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  min-width: 94px;
+}
+
+@media (max-width: 760px) {
+  .boss-record-strip,
+  .boss-material-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .forge-card {
+    grid-template-columns: 1fr;
+  }
+
+  .forge-card > button {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+}

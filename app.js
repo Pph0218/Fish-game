@@ -598,49 +598,57 @@
       { id: "vortex_net", name: "涡流网", icon: "◉", passive: "空网率降低", stat: { emptyPct: 0.01 } },
       { id: "resonant_net", name: "共振网", icon: "⌁", passive: "双倍捕获概率", stat: { doubleChance: 0.015 } },
       { id: "skynet", name: "天罗网", icon: "✶", passive: "全局捕获量", stat: { catchPct: 0.04 } },
-      { id: "void_net", name: "虚空网", icon: "✦", passive: "技能释放后天罗脉冲", stat: { catchPct: 0.03 }, activeSkill: "sky_pulse" }
+      { id: "void_net", name: "虚空网", icon: "✦", passive: "技能释放后天罗脉冲", stat: { catchPct: 0.03 }, activeSkill: "sky_pulse" },
+      { id: "tidejaw_net", name: "触礁巨颚网", icon: "◍", passive: "巨兽熔铸 · 捕获量", stat: { catchPct: 0.06 }, bossOnly: true }
     ],
     sonar: [
       { id: "thermal_sonar", name: "热成像声呐", icon: "◉", passive: "稀有鱼概率", stat: { rareChance: 0.008 } },
       { id: "spectral_sonar", name: "声谱声呐", icon: "◌", passive: "热点持续时间", stat: { hotspotDurationPct: 0.08 } },
       { id: "quantum_sonar", name: "量子声呐", icon: "⌬", passive: "首领动力", stat: { bossPowerPct: 0.04 } },
-      { id: "abyss_sonar", name: "深渊声呐", icon: "◈", passive: "传说鱼概率", stat: { legendChance: 0.002 } }
+      { id: "abyss_sonar", name: "深渊声呐", icon: "◈", passive: "传说鱼概率", stat: { legendChance: 0.002 } },
+      { id: "coral_watcher", name: "珊瑚守望声呐", icon: "◉", passive: "巨兽熔铸 · 稀有与热点", stat: { rareChance: 0.015, hotspotDurationPct: 0.06 }, bossOnly: true }
     ],
     hull: [
       { id: "cold_hull", name: "冷藏船体", icon: "▣", passive: "加工鱼价", stat: { processPct: 0.04 } },
       { id: "expanded_hull", name: "扩容船体", icon: "⬢", passive: "鱼舱容量", stat: { capacity: 35 } },
       { id: "armored_hull", name: "装甲船体", icon: "▰", passive: "离线收益", stat: { offlineHours: 1 } },
-      { id: "bio_hull", name: "生态船体", icon: "⌘", passive: "全收益", stat: { allYieldPct: 0.025 } }
+      { id: "bio_hull", name: "生态船体", icon: "⌘", passive: "全收益", stat: { allYieldPct: 0.025 } },
+      { id: "oarfish_hull", name: "皇带龙骨船体", icon: "⌁", passive: "巨兽熔铸 · 容量与全收益", stat: { capacity: 40, allYieldPct: 0.012 }, bossOnly: true }
     ],
     engine: [
       { id: "tidal_engine", name: "潮汐引擎", icon: "≈", passive: "自动速度", stat: { autoRatePct: 0.06 } },
       { id: "ion_engine", name: "离子引擎", icon: "➤", passive: "自动双倍", stat: { autoDouble: 0.01 } },
       { id: "overdrive_engine", name: "超载引擎", icon: "⚡", passive: "超载航行主动技", stat: { autoRatePct: 0.04 }, activeSkill: "overdrive" },
-      { id: "curve_engine", name: "曲率引擎", icon: "◒", passive: "离线续航", stat: { offlineHours: 2 } }
+      { id: "curve_engine", name: "曲率引擎", icon: "◒", passive: "离线续航", stat: { offlineHours: 2 } },
+      { id: "starwhale_engine", name: "星辉鲸流引擎", icon: "✦", passive: "巨兽熔铸 · 自动与全收益", stat: { autoRatePct: 0.08, allYieldPct: 0.012 }, bossOnly: true }
     ],
     lure: [
       { id: "phosphor_lure", name: "磷光诱饵", icon: "✦", passive: "稀有鱼概率", stat: { rareChance: 0.01 } },
       { id: "golden_lure", name: "黄金诱饵", icon: "◆", passive: "黄金诱爆主动技", stat: { legendChance: 0.002 }, activeSkill: "golden_explosion" },
       { id: "dream_lure", name: "幻梦诱饵", icon: "◌", passive: "事件频率", stat: { eventRate: 0.06 } },
-      { id: "beast_lure", name: "巨兽诱饵", icon: "☠", passive: "首领奖励", stat: { bossRewardPct: 0.08 } }
+      { id: "beast_lure", name: "巨兽诱饵", icon: "☠", passive: "首领奖励", stat: { bossRewardPct: 0.08 } },
+      { id: "aurora_lure", name: "极光龙鳍诱饵", icon: "✧", passive: "巨兽熔铸 · 稀有与传说", stat: { rareChance: 0.012, legendChance: 0.003 }, bossOnly: true }
     ],
     beacon: [
       { id: "trade_beacon", name: "贸易信标", icon: "◇", passive: "全部售价", stat: { sellPct: 0.04 } },
       { id: "star_beacon", name: "星链信标", icon: "✧", passive: "全收益", stat: { allYieldPct: 0.03 } },
       { id: "hunt_beacon", name: "猎杀信标", icon: "⌖", passive: "首领动力", stat: { bossPowerPct: 0.06 } },
-      { id: "return_beacon", name: "归航信标", icon: "⟲", passive: "离线时长", stat: { offlineHours: 1 } }
+      { id: "return_beacon", name: "归航信标", icon: "⟲", passive: "离线时长", stat: { offlineHours: 1 } },
+      { id: "magma_beacon", name: "熔核信标", icon: "☄", passive: "巨兽熔铸 · 首领奖励", stat: { bossRewardPct: 0.12 }, bossOnly: true }
     ],
     armor: [
       { id: "ceramic_armor", name: "陶瓷护甲", icon: "⬡", passive: "加工价值", stat: { processPct: 0.06 } },
       { id: "bio_armor", name: "生物护甲", icon: "✹", passive: "稀有鱼概率", stat: { rareChance: 0.008 } },
       { id: "energy_armor", name: "能量护甲", icon: "◈", passive: "技能急速", stat: { skillHastePct: 0.05 } },
-      { id: "abyss_armor", name: "深渊护甲", icon: "⬢", passive: "首领奖励", stat: { bossRewardPct: 0.1 } }
+      { id: "abyss_armor", name: "深渊护甲", icon: "⬢", passive: "首领奖励", stat: { bossRewardPct: 0.1 } },
+      { id: "observer_armor", name: "观测者甲壳", icon: "⌬", passive: "巨兽熔铸 · 掉落与首领", stat: { gearDropPct: 0.03, bossPowerPct: 0.05 }, bossOnly: true }
     ],
     core: [
       { id: "time_core", name: "时滞核心", icon: "⌛", passive: "时滞领域主动技", stat: { skillHastePct: 0.05 }, activeSkill: "time_field" },
       { id: "resonance_core", name: "共鸣核心", icon: "◈", passive: "全收益", stat: { allYieldPct: 0.04 } },
       { id: "void_core", name: "虚空核心", icon: "✦", passive: "捕获量", stat: { catchPct: 0.05 } },
-      { id: "star_core", name: "星核", icon: "✶", passive: "稀有机会与售价", stat: { rareChance: 0.006, sellPct: 0.03 } }
+      { id: "star_core", name: "星核", icon: "✶", passive: "稀有机会与售价", stat: { rareChance: 0.006, sellPct: 0.03 } },
+      { id: "void_orbit_core", name: "归墟星盘旋核", icon: "✹", passive: "巨兽熔铸 · 全收益与技能", stat: { allYieldPct: 0.06, skillHastePct: 0.05 }, bossOnly: true }
     ]
   };
 
@@ -652,6 +660,22 @@
     leviathan: { name: "利维坦", color: "#ffb35c", bonuses: { 2: { bossPowerPct: 0.08 }, 4: { bossRewardPct: 0.12 }, 6: { catchPct: 0.18 }, 8: { bossPowerPct: 0.25, bossRewardPct: 0.3 } } }
   };
 
+  const BOSS_MATERIALS = {
+    sonarShard: { name: "声呐核心碎片", icon: "◉", color: "#62e7f0" },
+    armorPlate: { name: "巨兽护甲片", icon: "⬡", color: "#ffd36a" },
+    voidHeart: { name: "虚空心脏核", icon: "✦", color: "#b58cff" }
+  };
+
+  const BOSS_FORGE_RECIPES = [
+    { zone: "shallow", slot: "net", archetype: "tidejaw_net", cost: { sonarShard: 2, armorPlate: 1, voidHeart: 0, alloy: 12 }, description: "提高基础捕获量，适合稳定刷图。" },
+    { zone: "reef", slot: "sonar", archetype: "coral_watcher", cost: { sonarShard: 1, armorPlate: 1, voidHeart: 0, alloy: 16 }, description: "强化稀有率与声呐热点持续时间。" },
+    { zone: "deep", slot: "hull", archetype: "oarfish_hull", cost: { sonarShard: 0, armorPlate: 2, voidHeart: 0, alloy: 18 }, description: "扩充鱼舱并提高长期全收益。" },
+    { zone: "abyss", slot: "engine", archetype: "starwhale_engine", cost: { sonarShard: 0, armorPlate: 2, voidHeart: 1, alloy: 22 }, description: "让自动船队与全收益同时提速。" },
+    { zone: "aurora", slot: "lure", archetype: "aurora_lure", cost: { sonarShard: 2, armorPlate: 0, voidHeart: 1, alloy: 24 }, description: "提升稀有与传说鱼信号质量。" },
+    { zone: "rift", slot: "beacon", archetype: "magma_beacon", cost: { sonarShard: 0, armorPlate: 3, voidHeart: 1, alloy: 28 }, description: "提高首领阶段奖励与熔铸收益。" },
+    { zone: "city", slot: "armor", archetype: "observer_armor", cost: { sonarShard: 3, armorPlate: 3, voidHeart: 1, alloy: 34 }, description: "强化装备掉落与首领阶段进度。" },
+    { zone: "void", slot: "core", archetype: "void_orbit_core", cost: { sonarShard: 0, armorPlate: 4, voidHeart: 2, alloy: 40 }, description: "终点核心，同时提高全收益与技能急速。" }
+  ];
   const GEAR_SKILLS = {
     sky_pulse: { key: "R", name: "天罗脉冲", icon: "✶", cooldown: 45, duration: 8, color: "#74efff", description: "8 秒内捕获量 +80%，网面展开范围扩大。" },
     overdrive: { key: "T", name: "超载航行", icon: "⚡", cooldown: 50, duration: 10, color: "#ffd36a", description: "10 秒内自动撒网速度 ×2.5。" },
@@ -803,6 +827,8 @@
       profileSetupSeen: false,
       leaderboard: { board: "captain", lastSnapshotAt: 0, lastSubmitAt: 0, cache: {} },
       bossTutorialSeen: false,
+      bossMaterials: { sonarShard: 0, armorPlate: 0, voidHeart: 0 },
+      bossRecords: {},
       ui: { keyGuideCollapsed: false, guideSeen: false, expandedBranch: "net_mastery", expandedGroup: 0, equipmentTab: "equipped", bossBannerExpanded: false, leftPanelOpen: false, rightPanelOpen: false, leftPanelPinned: false, rightPanelPinned: false }
     };
   }
@@ -883,6 +909,47 @@
     return counts;
   }
 
+  function getEquipmentPrototypeCount() {
+    return Object.values(EQUIPMENT_ARCHETYPES).reduce((sum, list) => sum + list.length, 0);
+  }
+
+  function getBossMaterialCount(key) {
+    return Math.max(0, Number(state.bossMaterials?.[key]) || 0);
+  }
+
+  function canForgeBossEquipment(recipe) {
+    if (!recipe) return false;
+    return Object.entries(recipe.cost || {}).every(([key, value]) => key === "alloy" ? state.equipment.alloy >= value : getBossMaterialCount(key) >= value);
+  }
+
+  function forgeBossEquipment(archetypeId) {
+    const recipe = BOSS_FORGE_RECIPES.find((entry) => entry.archetype === archetypeId);
+    if (!recipe) return;
+    if (!canForgeBossEquipment(recipe)) {
+      showToast("熔铸材料不足", "击败首领并破坏部位后会获得声呐核心碎片、巨兽护甲片和虚空心脏核。", "error");
+      return;
+    }
+    Object.entries(recipe.cost || {}).forEach(([key, value]) => {
+      if (key === "alloy") state.equipment.alloy -= value;
+      else state.bossMaterials[key] = Math.max(0, getBossMaterialCount(key) - value);
+    });
+    const item = createEquipment(recipe.slot, "legendary", recipe.archetype);
+    const archetype = getEquipmentArchetype(recipe.slot, item);
+    showToast("巨兽熔铸成功", `${archetype.name}已加入舰载装备，拥有独立传说被动。`, "gold");
+    updateAllUI();
+    saveGame(true);
+  }
+
+  function recordBossDefeat(zoneId, boss) {
+    const now = Date.now();
+    const record = state.bossRecords?.[zoneId] || { kills: 0, bestPerfect: 0, fastestSeconds: 0, lastDefeatedAt: 0 };
+    const duration = Math.max(1, Math.round((now - (Number(boss.startedAt) || now)) / 1000));
+    record.kills = Number(record.kills || 0) + 1;
+    record.bestPerfect = Math.max(Number(record.bestPerfect) || 0, Number(boss.perfectFinishers) || 0);
+    record.fastestSeconds = record.fastestSeconds ? Math.min(record.fastestSeconds, duration) : duration;
+    record.lastDefeatedAt = now;
+    state.bossRecords = { ...(state.bossRecords || {}), [zoneId]: record };
+  }
   function getEquipmentBonuses() {
     const bonuses = blankBonuses();
     const setCounts = getEquippedSetCounts();
@@ -1632,6 +1699,7 @@
         phaseProgress: 0,
         finisher: 0,
         finisherWindowUntil: 0,
+        startedAt: now,
         finisherMisses: 0,
         perfectFinishers: 0,
         windowPerfect: true,
@@ -1664,7 +1732,9 @@
         boss.phase = 2;
         boss.phaseProgress = 0;
         boss.brokenParts = Array.from(new Set([...(boss.brokenParts || []), "sonar"]));
+        state.bossMaterials.sonarShard = Number(state.bossMaterials.sonarShard || 0) + 1;
         boss.phaseBuff = { type: "sonar_lock", until: now + 15000, rareChance: 0.03, legendChance: 0.005 };
+        showToast("声呐核心碎片 +1", "破坏声呐核心后获得巨兽熔铸材料。", "success");
         showEventBanner("声呐核心已破坏 · 护甲破译", "15 秒声呐校准：稀有率 +3%，传说率 +0.5%。捕获稀有鱼或命中热点继续破甲。", "rare", 3800);
       }
       renderBossHud();
@@ -1683,7 +1753,9 @@
         boss.windowAttempted = false;
         boss.windowPerfect = true;
         boss.brokenParts = Array.from(new Set([...(boss.brokenParts || []), "armor"]));
+        state.bossMaterials.armorPlate = Number(state.bossMaterials.armorPlate || 0) + 1;
         boss.phaseBuff = { type: "armor_break", until: now + 20000, catchPct: 0.15, bossProgressPct: 0.12 };
+        showToast("巨兽护甲片 +1", "外层护甲已破坏，材料已收入舰载仓库。", "success");
         showEventBanner("护甲已破坏 · 终结收网", "20 秒护甲崩解：捕获量 +15%。抓住红色窗口完成终结。", "gold", 3800);
       }
       renderBossHud();
@@ -1721,6 +1793,8 @@
         state.ascension.crystals += crystalReward;
         state.equipment.alloy += alloyReward;
         state.equipment.rarePity = clamp((Number(state.equipment.rarePity) || 0) + Math.round(perfectFinishers * 5), 0, 100);
+        state.bossMaterials.voidHeart = Number(state.bossMaterials.voidHeart || 0) + 1;
+        recordBossDefeat(state.currentZone, boss);
         const progress = state.zoneProgress[state.currentZone];
         progress.bossCharge = Math.max(0, progress.bossCharge - BOSS_DEFS[state.currentZone].threshold);
         progress.bossDefeated += 1;
@@ -1781,7 +1855,8 @@
   function createEquipment(slot, rarity, archetypeId = null) {
     const slotDef = EQUIPMENT_SLOTS[slot] || EQUIPMENT_SLOTS.net;
     const archetypes = EQUIPMENT_ARCHETYPES[slot] || [{ id: "legacy", name: "传统装备", stat: {} }];
-    const archetype = archetypes.find((entry) => entry.id === archetypeId) || archetypes[Math.floor(Math.random() * archetypes.length)];
+    const availableArchetypes = archetypes.filter((entry) => !entry.bossOnly || entry.id === archetypeId);
+    const archetype = availableArchetypes.find((entry) => entry.id === archetypeId) || availableArchetypes[Math.floor(Math.random() * availableArchetypes.length)] || archetypes[0];
     const setIds = Object.keys(EQUIPMENT_SETS);
     const setId = setIds[Math.floor(Math.random() * setIds.length)];
     const id = setId + ":" + slot + ":" + archetype.id + ":" + rarity;
@@ -2616,6 +2691,8 @@
         const source = { ...base.zoneProgress[zone.id], ...((saved.zoneProgress || {})[zone.id] || {}) };
         return [zone.id, { caught: Number(source.caught) || 0, bossCharge: Number(source.bossCharge) || 0, bossDefeated: Number(source.bossDefeated) || 0, mastery: Number(source.mastery) || 0 }];
       }));
+      state.bossMaterials = { ...base.bossMaterials, ...(saved.bossMaterials || {}) };
+      state.bossRecords = saved.bossRecords && typeof saved.bossRecords === "object" ? saved.bossRecords : {};
       state.boss = saved.boss && typeof saved.boss === "object" ? {
         ...saved.boss,
         phase: Number(saved.boss.phase) || 1,
@@ -3087,6 +3164,7 @@
         ["armor", "外层护甲", "第二阶段"],
         ["core", "虚空心脏", "终结阶段"]
       ].map(([id, label, phase]) => `<span class="${boss && (boss.brokenParts || []).includes(id) ? "broken" : ""}"><i></i><small>${phase}</small><strong>${label}</strong><b>${boss && (boss.brokenParts || []).includes(id) ? "已破坏" : "待破坏"}</b></span>`).join("");
+      const bossRecord = state.bossRecords?.[state.currentZone] || { kills: 0, bestPerfect: 0, fastestSeconds: 0 };
       subtitle = boss ? `第 ${boss.phase} 阶段 · ${def.phases[boss.phase - 1]} · 当前进度 ${Math.round((phaseProgress / phaseGoal) * 100)}%。` : `当前海域捕获成长 ${formatInteger(progress.bossCharge)} / ${formatInteger(def.threshold)}。`;
       body = `<div class="boss-card ${boss ? "active" : ""}">
         <div class="boss-emblem">${boss ? boss.icon : "☠"}</div>
@@ -3098,7 +3176,7 @@
           <span><small>已击败</small><strong>${progress.bossDefeated}</strong></span>
         </div>
         <p class="muted">成功击败必掉史诗装备，并有 25% 概率额外获得传说装备。任何失误都不会回退阶段进度。</p>
-      </div><div class="boss-part-strip">${bossParts}</div><div class="boss-phase-checklist">${phaseCards}</div>`;
+      </div><div class="boss-part-strip">${bossParts}</div><div class="boss-phase-checklist">${phaseCards}</div><div class="boss-record-strip"><span><small>本海域击败</small><strong>${bossRecord.kills || 0}</strong></span><span><small>最佳完美终结</small><strong>${Number(bossRecord.bestPerfect || 0).toFixed(2)}</strong></span><span><small>最快击杀</small><strong>${bossRecord.fastestSeconds ? formatDuration(bossRecord.fastestSeconds) : "尚未完成"}</strong></span><span><small>熔铸材料</small><strong>◉ ${getBossMaterialCount("sonarShard")} · ⬡ ${getBossMaterialCount("armorPlate")} · ✦ ${getBossMaterialCount("voidHeart")}</strong></span></div>`;
       footer = `<button class="modal-button primary" type="button" data-modal-close>${boss ? "返回海面锁定声呐" : "继续捕捞"}</button>`;
     }
 
@@ -3214,9 +3292,9 @@
     }
     if (activeModal.type === "equipment") {
       title = "深海舰载装备";
-      subtitle = `深渊合金 ${state.equipment.alloy} · 已发现 ${Object.keys(state.equipment.discovered || {}).length} / 32 种装备`;
+      subtitle = `深渊合金 ${state.equipment.alloy} · 已发现 ${Object.keys(state.equipment.discovered || {}).length} / ${getEquipmentPrototypeCount()} 种装备`;
       const tab = state.ui.equipmentTab || "equipped";
-      const tabs = [["equipped", "当前装备"], ["collection", "收藏库"], ["skills", "技能配置"], ["codex", "装备图鉴"]];
+      const tabs = [["equipped", "当前装备"], ["collection", "收藏库"], ["skills", "技能配置"], ["forge", "巨兽熔铸"], ["codex", "装备图鉴"]];
       const tabBar = `<div class="equipment-tabs">${tabs.map(([id, label]) => `<button type="button" class="${tab === id ? "active" : ""}" data-equip-tab="${id}">${label}</button>`).join("")}</div>`;
       let panel = "";
       const setCounts = getEquippedSetCounts();
@@ -3239,7 +3317,7 @@
         }).join("")}</div>`;
       } else if (tab === "collection") {
         const owned = Object.values(state.equipment.owned);
-        panel = setStrip + (owned.length ? `<div class="equipment-collection"><h3>收藏 ${owned.length} / 32</h3><div class="gear-list">${owned.map((item) => {
+        panel = setStrip + (owned.length ? `<div class="equipment-collection"><h3>收藏 ${owned.length} / ${getEquipmentPrototypeCount()}</h3><div class="gear-list">${owned.map((item) => {
           const slotDef = EQUIPMENT_SLOTS[item.slot] || EQUIPMENT_SLOTS.net;
           const archetype = getEquipmentArchetype(item.slot, item);
           const rarity = EQUIPMENT_RARITIES[item.rarity] || EQUIPMENT_RARITIES.common;
@@ -3253,6 +3331,17 @@
           const selected = (state.equipment.skillLoadout || []).includes(id);
           return `<article class="skill-card ${selected ? "selected" : ""} ${available ? "" : "locked"}" style="--skill-color:${skill.color}"><div class="skill-icon">${skill.icon}</div><div><small>主动技 · 冷却 ${skill.cooldown}s</small><strong>${skill.name}</strong><p>${skill.description}</p></div><button class="modal-button" data-skill-loadout="${id}" ${available ? "" : "disabled"}>${selected ? "已装配" : available ? "装配" : "未拥有对应装备"}</button></article>`;
         }).join("")}</div>`;
+      } else if (tab === "forge") {
+        const materialStrip = Object.entries(BOSS_MATERIALS).map(([key, material]) => `<span style="--material-color:${material.color}"><i>${material.icon}</i><small>${material.name}</small><strong>${getBossMaterialCount(key)}</strong></span>`).join("");
+        const forgeCards = BOSS_FORGE_RECIPES.map((recipe) => {
+          const zone = getZone(recipe.zone);
+          const archetype = getEquipmentArchetype(recipe.slot, { archetype: recipe.archetype });
+          const owned = Object.values(state.equipment.owned).find((item) => item.archetype === recipe.archetype);
+          const canCraft = canForgeBossEquipment(recipe);
+          const costText = Object.entries(recipe.cost || {}).filter(([, value]) => Number(value) > 0).map(([key, value]) => key === "alloy" ? `合金 ×${value}` : `${BOSS_MATERIALS[key]?.name || key} ×${value}`).join(" · ");
+          return `<article class="forge-card ${owned ? "owned" : ""}" style="--forge-color:${EQUIPMENT_RARITIES.legendary.color}"><div class="forge-card-head"><span>${archetype.icon}</span><div><small>${zone.name} · ${EQUIPMENT_SLOTS[recipe.slot]?.name || recipe.slot}</small><h3>${archetype.name}</h3></div><b>${owned ? `Lv.${owned.level}` : "未熔铸"}</b></div><p>${recipe.description}</p><div class="forge-cost">${costText}</div><button class="modal-button primary" type="button" data-forge-gear="${recipe.archetype}" ${canCraft ? "" : "disabled"}>${canCraft ? owned ? "熔铸强化" : "开始熔铸" : "材料不足"}</button></article>`;
+        }).join("");
+        panel = `<div class="boss-material-strip">${materialStrip}</div><p class="forge-note">击破首领的三个部位会依次获得声呐核心碎片、巨兽护甲片和虚空心脏核。巨兽装备不会从普通掉落中随机出现，只能通过熔铸获得。</p><div class="boss-forge-list">${forgeCards}</div>`;
       } else {
         panel = `<div class="gear-codex-grid">${Object.entries(EQUIPMENT_ARCHETYPES).flatMap(([slot, list]) => list.map((archetype) => {
           const found = Boolean(state.equipment.discovered?.[archetype.id]);
@@ -3592,6 +3681,7 @@
       const ascendButton = event.target.closest("[data-ascend]");
       const equipButton = event.target.closest("[data-equip-gear]");
       const upgradeGearButton = event.target.closest("[data-upgrade-gear]");
+      const forgeGearButton = event.target.closest("[data-forge-gear]");
       const unlockButton = event.target.closest("[data-unlock-zone]");
       const tabButton = event.target.closest("[data-equip-tab]");
       const skillModeButton = event.target.closest("[data-toggle-skill-mode]");
@@ -3636,6 +3726,7 @@
       if (refreshLeaderboardButton) openLeaderboard();
       if (bossToggle) { state.ui.bossBannerExpanded = !state.ui.bossBannerExpanded; renderBossHud(); }
       if (upgradeGearButton) upgradeEquipment(upgradeGearButton.dataset.upgradeGear);
+      if (forgeGearButton) forgeBossEquipment(forgeGearButton.dataset.forgeGear);
 
       if (event.target === dom.modalLayer) closeModal();
     });
