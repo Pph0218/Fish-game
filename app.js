@@ -872,6 +872,10 @@
   let lastManualCast = 0;
   let lastAutoSellToast = 0;
   let lastDynamicRender = 0;
+  let castAnimationTimer = null;
+  let autoCastTimer = null;
+  let netImpactTimer = null;
+  let lastNormalImpactAt = 0;
   let saveFlashTimer = null;
   let eventBannerTimer = null;
   let zoneScanTimer = null;
@@ -2426,19 +2430,26 @@
       dom.seaPanel.style.setProperty("--cast-x", "50%");
       dom.seaPanel.style.setProperty("--cast-y", "58%");
     }
-    dom.seaPanel.classList.remove("net-active", "full-net");
-    void dom.seaPanel.offsetWidth;
-    if (fullScreen) dom.seaPanel.classList.add("full-net");
-    dom.seaPanel.classList.add("net-active");
+    if (fullScreen) dom.seaPanel.classList.toggle("full-net", true);
+    if (!dom.seaPanel.classList.contains("net-active")) {
+      dom.seaPanel.classList.remove("net-active", "full-net");
+      void dom.seaPanel.offsetWidth;
+      if (fullScreen) dom.seaPanel.classList.add("full-net");
+      dom.seaPanel.classList.add("net-active");
+    }
     emitTide("tide:cast", { origin: pointerOrigin, fullScreen });
-    window.setTimeout(() => dom.seaPanel.classList.remove("net-active", "full-net"), 1120);
+    window.clearTimeout(castAnimationTimer);
+    castAnimationTimer = window.setTimeout(() => dom.seaPanel.classList.remove("net-active", "full-net"), 920);
   }
 
   function showAutoCastAnimation() {
-    dom.seaPanel.classList.remove("auto-cast");
-    void dom.seaPanel.offsetWidth;
-    dom.seaPanel.classList.add("auto-cast");
-    window.setTimeout(() => dom.seaPanel.classList.remove("auto-cast"), 760);
+    if (!dom.seaPanel.classList.contains("auto-cast")) {
+      dom.seaPanel.classList.remove("auto-cast");
+      void dom.seaPanel.offsetWidth;
+      dom.seaPanel.classList.add("auto-cast");
+    }
+    window.clearTimeout(autoCastTimer);
+    autoCastTimer = window.setTimeout(() => dom.seaPanel.classList.remove("auto-cast"), 620);
   }
 
   function ensureAutoSellSpace() {
@@ -4194,6 +4205,8 @@
   }
 
   function triggerImpact(type = "normal", origin = null) {
+    if (type === "normal" && Date.now() - lastNormalImpactAt < 180) return;
+    if (type === "normal") lastNormalImpactAt = Date.now();
     emitTide("tide:impact", { type, origin });
     emitTide("tide:impact3d", { type });
     const configs = {
@@ -4237,14 +4250,20 @@
   }
   function triggerNetImpact(empty = false) {
     emitTide("tide:net-impact", { empty });
-    dom.seaPanel.classList.remove("impact-active", "empty-impact");
-    void dom.seaPanel.offsetWidth;
-    dom.seaPanel.classList.add(empty ? "empty-impact" : "impact-active");
-    window.setTimeout(() => dom.seaPanel.classList.remove("impact-active", "empty-impact"), 1050);
+    const className = empty ? "empty-impact" : "impact-active";
+    window.clearTimeout(netImpactTimer);
+    if (!dom.seaPanel.classList.contains(className)) {
+      dom.seaPanel.classList.remove("impact-active", "empty-impact");
+      void dom.seaPanel.offsetWidth;
+      dom.seaPanel.classList.add(className);
+    }
+    netImpactTimer = window.setTimeout(() => dom.seaPanel.classList.remove("impact-active", "empty-impact"), 820);
   }
 
   function emitSplash(count = 14, empty = false) {
-    trimFx(dom.splashField, ".splash-drop", 24);
+    const maxDrops = window.innerWidth <= 760 ? 8 : 12;
+    count = Math.min(count, maxDrops);
+    trimFx(dom.splashField, ".splash-drop", maxDrops + 4);
     for (let i = 0; i < count; i += 1) {
       const drop = document.createElement("i");
       drop.className = `splash-drop${empty ? " empty-drop" : ""}`;
@@ -4265,7 +4284,8 @@
     })();
     const targetRect = dom.holdStat.getBoundingClientRect ? dom.holdStat.getBoundingClientRect() : null;
     const target = targetRect && targetRect.width ? { x: targetRect.left + targetRect.width / 2, y: targetRect.top + targetRect.height / 2 } : { x: window.innerWidth - 120, y: 42 };
-    const total = clamp(Math.ceil(count * 0.55), 2, 9);
+    if (count <= 0) return;
+    const total = clamp(Math.ceil(count * 0.28), 1, 4);
     for (let i = 0; i < total; i += 1) {
       const spark = document.createElement("i");
       const dx = target.x - source.x;
@@ -4285,7 +4305,8 @@
       spark.style.setProperty("--flight-end-x", `${flightX * 0.88}px`);
       spark.style.setProperty("--flight-end-y", `${flightY * 0.78 - 26}px`);
       spark.style.setProperty("--flight-duration", `${duration.toFixed(0)}ms`);
-      spark.style.setProperty("--flight-delay", `${(i * 34).toFixed(0)}ms`);
+      spark.style.setProperty("--flight-delay", `${(i * 26).toFixed(0)}ms`);
+      spark.style.willChange = "transform, opacity";
       spark.style.setProperty("--flight-shake", `${fxBetween(-13, 13).toFixed(1)}px`);
       dom.effectRoot.appendChild(spark);
       window.setTimeout(() => {

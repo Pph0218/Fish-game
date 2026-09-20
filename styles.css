@@ -5885,3 +5885,45 @@ button:not(:disabled):hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* effect budget: repeated casts stay light and readable */
+.splash-field,
+.catch-layer,
+.effect-root {
+  contain: layout paint style;
+}
+
+.splash-drop,
+.fish-spark,
+.catch-pop,
+.impact-wave,
+.cast-net,
+.screen-flash {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+.fish-spark {
+  animation-duration: var(--flight-duration, 800ms);
+}
+
+@media (max-width: 760px) {
+  .catch-pop {
+    font-size: 10px;
+  }
+
+  .fish-spark {
+    transform: scale(.86);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-drop,
+  .fish-spark,
+  .catch-pop,
+  .impact-wave,
+  .cast-net {
+    animation-duration: .01ms !important;
+  }
+}

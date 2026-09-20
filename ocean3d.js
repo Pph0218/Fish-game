@@ -435,13 +435,47 @@ function shouldUseHighQualityFishModels() {
   return !window.TIDE_FORCE_SPRITES && quality !== "low" && window.innerWidth >= 760 && !navigator.connection?.saveData;
 }
 
-function ensureZoneFishModels(zoneId) {
-  if (!shouldUseHighQualityFishModels()) return Promise.resolve();
+async function ensureZoneFishModels(zoneId, onProgress = null) {
+  if (!shouldUseHighQualityFishModels()) return;
   const ids = ZONE_FISH_IDS[zoneId] || ZONE_FISH_IDS.shallow;
   const keys = Array.from(new Set(ids.map((id) => HQ_SPECIES_MODELS[id]?.[0]).filter(Boolean)));
-  return Promise.all(keys.map((key) => ensureModelAsset(key))).catch((error) => {
-    console.warn("High-quality fish preload failed", error);
+  for (const key of keys) {
+    try {
+      if (!models[key]) await ensureModelAsset(key);
+      onProgress?.(key);
+    } catch (error) {
+      console.warn("High-quality fish preload failed", key, error);
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 45));
+  }
+}
+let fishRebuildFrame = null;
+
+function scheduleFishRebuild() {
+  if (fishRebuildFrame) return;
+  fishRebuildFrame = window.requestAnimationFrame(() => {
+    fishRebuildFrame = null;
+    if (renderer) placeFishSchool();
   });
+}
+function createFallbackFish3D(speciesId) {
+  const [modelKey, color] = SPECIES_MODELS[speciesId] || ["dart", "#9de8f4"];
+  const root = createProceduralFish(modelKey, color);
+  const group = new THREE.Group();
+  group.add(root);
+  group.userData.speciesId = speciesId;
+  group.userData.model = root;
+  group.userData.sprite = null;
+  group.userData.fallback3d = true;
+  group.userData.color = new THREE.Color(color);
+  group.userData.phase = rand() * Math.PI * 2;
+  group.userData.speed = 0.38 + rand() * 0.38;
+  group.userData.baseScale = (modelKey === "whale" ? 1.35 : modelKey === "ray" ? 1.18 : 0.92) + rand() * 0.24;
+  group.userData.baseY = 0;
+  group.userData.route = "horizontal";
+  group.userData.mode = "schooling";
+  group.scale.setScalar(group.userData.baseScale);
+  return group;
 }
 function createSpriteFish(speciesId) {
   const [modelKey, color] = SPECIES_MODELS[speciesId] || ["dart", "#9de8f4"];
@@ -495,13 +529,13 @@ function placeFishSchool() {
   school.forEach((fish) => scene.remove(fish));
   school = [];
   const zoneIds = ZONE_FISH_IDS[currentZone] || ZONE_FISH_IDS.shallow;
-  const hqReady = shouldUseHighQualityFishModels() && zoneIds.every((id) => Boolean(models[HQ_SPECIES_MODELS[id]?.[0]]));
-  const count = hqReady ? Math.min(fishDensityTarget || 36, quality === "high" ? 36 : 24) : (fishDensityTarget || (quality === "high" ? 64 : 36));
+  const use3D = shouldUseHighQualityFishModels();
+  const count = use3D ? Math.min(fishDensityTarget || 36, quality === "high" ? 36 : 24) : (fishDensityTarget || (quality === "high" ? 64 : 36));
   const laneCount = 8;
   const perLane = Math.ceil(count / laneCount);
   for (let i = 0; i < count; i += 1) {
     const id = zoneIds[i % zoneIds.length];
-    const fish = (hqReady ? createHighQualityFish(id) : null) || createSpriteFish(id);
+    const fish = use3D ? (createHighQualityFish(id) || createFallbackFish3D(id)) : createSpriteFish(id);
     const data = fish.userData;
     const lane = i % laneCount;
     const slot = Math.floor(i / laneCount);
@@ -1470,9 +1504,8 @@ function applyZone(zoneId) {
   createZoneLandmarks(currentZone);
   createEnvironmentEffects();
   placeFishSchool();
-  Promise.all([ensureZoneSprites(currentZone), ensureZoneFishModels(currentZone)]).then(() => {
-    if (currentZone === zoneId && ready) placeFishSchool();
-  });
+  ensureZoneSprites(currentZone).then(() => { if (currentZone === zoneId && ready) placeFishSchool(); });
+  ensureZoneFishModels(currentZone, () => { if (currentZone === zoneId) scheduleFishRebuild(); });
 }
 
 function setQuality(level) {
@@ -1560,7 +1593,7 @@ async function init() {
     await ensureZoneSprites(currentZone);
     placeFishSchool();
     resize();
-    ensureZoneFishModels(currentZone).then(() => { if (renderer) placeFishSchool(); });
+    ensureZoneFishModels(currentZone, () => scheduleFishRebuild());
     ready = true;
     app.classList.add("webgl-ready");
     window.dispatchEvent(new CustomEvent("tide:3d-ready", { detail: { zone: currentZone } }));
@@ -1625,7 +1658,7 @@ window.Tide3D = {
   get modelCount() { return new Set(Object.values(SPECIES_MODELS).map(([key]) => key)).size; },
   get fishCount() { return school.length; },
   get highQualityModelCount() { return hqFishTemplates.size; },
-  get fishVisualMode() { return !shouldUseHighQualityFishModels() ? "sprite" : (hqFishTemplates.size ? "downloaded-3d" : "loading"); },
+  get fishVisualMode() { return !shouldUseHighQualityFishModels() ? "sprite" : (hqFishTemplates.size ? "downloaded-3d" : "procedural-3d"); },
   get caughtFishCount() { return school.filter((fish) => fish.userData.isCaught).length; },
   get hiddenFishCount() { return school.filter((fish) => fish.userData.hiddenUntil).length; },
   get debugColors() { const out=[]; school.slice(0,4).forEach((fish)=>{fish.traverse((child)=>{if(child.isMesh && child.material && child.material.color && !out.includes(child.material.color.getHexString()))out.push(child.material.color.getHexString());});}); return out; },
