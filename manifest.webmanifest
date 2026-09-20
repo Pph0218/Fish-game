@@ -1,0 +1,17 @@
+{
+  "name": "潮汐渔场：深海舰长日志",
+  "short_name": "潮汐渔场",
+  "description": "撒网捕鱼、深海首领、装备构筑与在线舰队排行。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#020817",
+  "theme_color": "#020817",
+  "lang": "zh-CN",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

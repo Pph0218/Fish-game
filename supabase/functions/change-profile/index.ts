@@ -1,0 +1,25 @@
+const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+const enc = new TextEncoder();
+const hash = async (value) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(value)))).map((b) => b.toString(16).padStart(2, "0")).join("");
+const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
+  const { nickname, deviceToken } = await request.json();
+  if (!/^[\u4e00-\u9fa5A-Za-z0-9_]{2,12}$/.test(nickname || "")) return json({ error: "invalid_nickname" }, 400);
+  const url = Deno.env.get("SUPABASE_URL");
+  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const headers = { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json", Prefer: "return=representation" };
+  const device = await hash(deviceToken);
+  const profiles = await fetch(`${url}/rest/v1/profiles?device_hash=eq.${device}&select=*`, { headers }).then((r) => r.json());
+  const profile = profiles[0];
+  if (!profile) return json({ error: "profile_not_found" }, 404);
+  const changedAt = profile.nickname_changed_at ? Date.parse(profile.nickname_changed_at) : Date.parse(profile.created_at);
+  if (Date.now() - changedAt < 3 * 24 * 60 * 60 * 1000) return json({ error: "rename_cooldown" }, 409);
+  const key = nickname.toLowerCase();
+  const taken = await fetch(`${url}/rest/v1/profiles?nickname_key=eq.${encodeURIComponent(key)}&id=neq.${profile.id}&select=id`, { headers }).then((r) => r.json());
+  if (taken.length) return json({ error: "nickname_taken" }, 409);
+  await fetch(`${url}/rest/v1/reserved_nicknames`, { method: "POST", headers, body: JSON.stringify({ nickname_key: profile.nickname_key, reserved_until: new Date(Date.now() + 30 * 86400000).toISOString() }) });
+  const rows = await fetch(`${url}/rest/v1/profiles?id=eq.${profile.id}`, { method: "PATCH", headers, body: JSON.stringify({ nickname, nickname_key: key, nickname_changed_at: new Date().toISOString(), updated_at: new Date().toISOString() }) }).then((r) => r.json());
+  await fetch(`${url}/rest/v1/leaderboard_scores?profile_id=eq.${profile.id}`, { method: "PATCH", headers, body: JSON.stringify({ nickname }) });
+  return json({ profile: { id: rows[0].id, nickname: rows[0].nickname, nicknameKey: rows[0].nickname_key, createdNicknameAt: Date.parse(rows[0].nickname_changed_at || rows[0].created_at) } });
+});
