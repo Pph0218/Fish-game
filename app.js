@@ -774,6 +774,16 @@
     void: { name: "归墟之主", threshold: 1500000, icon: "✹", phases: ["声呐追踪", "护甲破译", "终结收网"] }
   };
 
+  const BOSS_MECHANICS = {
+    shallow: { name: "礁岩冲撞", icon: "▰", description: "礁岩会让声呐偏移，第一阶段需要多完成 1 次弱点命中。", hints: ["弱点追踪更久", "护甲破碎会释放冲击波", "终结窗口稳定"] },
+    reef: { name: "珊瑚召唤", icon: "◈", description: "珊瑚幻影会混入热点，只有真正的金色弱点才算追踪成功。", hints: ["避开珊瑚幻影，锁定真实弱点", "护甲会吸收普通命中", "终结窗口稳定"] },
+    deep: { name: "蛇形回响", icon: "⌁", description: "皇带鱼的蛇形残影会在每次命中后移动弱点。", hints: ["每次命中都会改变弱点", "高速移动缩小破甲窗口", "终结窗口稳定"] },
+    abyss: { name: "星辉镜像", icon: "✦", description: "星辉镜像会制造错误回波，弱点位置会不断重排。", hints: ["镜像是假目标，跟随金色锁定", "护甲需要高稀有鱼或热点", "终结窗口稳定"] },
+    aurora: { name: "极光护盾", icon: "✧", description: "极光护盾会吸收普通热点，只有稀有信号能击穿护甲。", hints: ["稀有热点可追踪", "护甲需要稀有或传说鱼", "终结窗口稳定"] },
+    rift: { name: "熔核爆发", icon: "☄", description: "熔核会强化高稀有捕获，但失误会缩短下一次终结窗口。", hints: ["高稀有捕获提供额外破甲", "熔核会惩罚空窗", "终结窗口较短"] },
+    city: { name: "观测者扫描", icon: "⌬", description: "观测者会记录行动模式，连续使用同一种破甲方式会被削弱。", hints: ["追踪模式正常", "热点与高稀有鱼必须交替", "终结窗口稳定"] },
+    void: { name: "归墟反转", icon: "✹", description: "归墟会削弱自动撒网并延长终结目标，手动落网是主要输出。", hints: ["自动贡献降到 10%", "自动贡献降到 10%", "终结目标增加 2 次"] }
+  };
   function createDefaultState() {
     const upgrades = {};
     allNodes.forEach((node) => { upgrades[node.id] = 0; });
@@ -1512,9 +1522,19 @@
       }
     });
     if (state.boss && state.boss.phase === 1) {
-      const candidates = state.sonar.hotspots.filter((spot) => spot.zone === state.currentZone);
+      const candidates = state.sonar.hotspots.filter((spot) => spot.zone === state.currentZone && !spot.decoy);
       if (!state.boss.weakpointId || !candidates.some((spot) => spot.id === state.boss.weakpointId)) {
         state.boss.weakpointId = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)].id : null;
+      }
+    }
+    if (state.boss?.zone === "reef" && state.boss.phase === 1) {
+      state.boss.mechanicState = state.boss.mechanicState || { lastKind: null, lastDecoyAt: 0 };
+      const decoys = state.sonar.hotspots.filter((spot) => spot.zone === state.currentZone && spot.decoy && spot.expiresAt > now);
+      if (decoys.length < 2 && now - (state.boss.mechanicState.lastDecoyAt || 0) > 3500) {
+        const def = HOTSPOT_TYPES.normal;
+        state.sonar.hotspots.push({ id: "coral-decoy-" + now + "-" + Math.floor(Math.random() * 999), type: "normal", decoy: true, zone: state.currentZone, x: 12 + Math.random() * 76, y: 42 + Math.random() * 42, vx: (Math.random() - 0.5) * 0.0012, radius: def.radius * 0.82, bornAt: now, expiresAt: now + 6200 });
+        state.boss.mechanicState.lastDecoyAt = now;
+        showEventBanner("珊瑚幻影", "只锁定屏幕上的真实弱点，珊瑚幻影命中不会推进阶段。", "rare", 1800);
       }
     }
     if (now >= (state.sonar.nextSpawnAt || 0)) spawnSonarHotspots();
@@ -1652,16 +1672,17 @@
   function renderSonarHotspots() {
     if (!dom.sonarLayer) return;
     const hotspots = (state.sonar.hotspots || []).filter((spot) => spot.zone === state.currentZone);
-    dom.sonarLayer.innerHTML = hotspots.map((spot) => { const remaining = Math.max(0, Math.ceil(((Number(spot.expiresAt) || Date.now()) - Date.now()) / 1000)); return `<span class="sonar-hotspot ${spot.type}" style="--x:${spot.x}%;--y:${spot.y}%;--size:${spot.radius * 2}%;--delay:${(spot.bornAt || 0) % 1400}ms"><i></i><b>${HOTSPOT_TYPES[spot.type].name}</b><small>范围 ${Math.round(spot.radius)}% · ${remaining}s</small></span>`; }).join("");
+    dom.sonarLayer.innerHTML = hotspots.map((spot) => { const remaining = Math.max(0, Math.ceil(((Number(spot.expiresAt) || Date.now()) - Date.now()) / 1000)); return `<span class="sonar-hotspot ${spot.type}${spot.decoy ? " decoy" : ""}" style="--x:${spot.x}%;--y:${spot.y}%;--size:${spot.radius * 2}%;--delay:${(spot.bornAt || 0) % 1400}ms"><i></i><b>${spot.decoy ? "珊瑚幻影" : HOTSPOT_TYPES[spot.type].name}</b><small>范围 ${Math.round(spot.radius)}% · ${remaining}s</small></span>`; }).join("");
     emitTide("tide:sonar", { hotspots: hotspots.map((spot) => ({ id: spot.id, type: spot.type, x: spot.x, y: spot.y, radius: spot.radius })) });
   }
 
   function getBossPhaseGoal(bossOrZone, phase = 1) {
     const zoneId = typeof bossOrZone === "string" ? bossOrZone : bossOrZone?.zone;
     const index = Math.max(0, zones.findIndex((zone) => zone.id === zoneId));
-    if (phase === 1) return index <= 3 ? 3 : index <= 5 ? 4 : 5;
-    if (phase === 2) return index <= 3 ? 6 : index <= 5 ? 8 : 10;
-    return index <= 3 ? 3 : index <= 5 ? 4 : 5;
+    let base = index <= 3 ? 3 : index <= 5 ? 4 : 5;
+    if (phase === 2) base = index <= 3 ? 6 : index <= 5 ? 8 : 10;
+    const bonus = zoneId === "shallow" && phase === 1 ? 1 : zoneId === "void" && phase === 3 ? 2 : 0;
+    return base + bonus;
   }
 
   function getBossWeakpointDirection(boss) {
@@ -1674,9 +1695,10 @@
 
   function getBossPhaseInstruction(boss) {
     if (!boss) return "捕获鱼类以召唤首领。";
-    if (boss.phase === 1) return `把网落在${getBossWeakpointDirection(boss)}的发光位置。`;
-    if (boss.phase === 2) return "金色热点最有效；稀有鱼 +1.5 格，传说鱼 +2 格。";
-    return "红色收网窗口出现时按空格、点击或触屏完成终结。";
+    const mechanic = BOSS_MECHANICS[boss.zone];
+    const base = boss.phase === 1 ? `把网落在${getBossWeakpointDirection(boss)}的发光位置。` : boss.phase === 2 ? "金色热点最有效；稀有鱼 +1.5 格，传说鱼 +2 格。" : "红色收网窗口出现时按空格、点击或触屏完成终结。";
+    const hint = mechanic?.hints?.[Math.max(0, Number(boss.phase || 1) - 1)];
+    return hint ? `${base}【${mechanic.name}】${hint}` : base;
   }
   function updateZoneProgress(amount) {
     const progress = state.zoneProgress[state.currentZone];
@@ -1704,6 +1726,7 @@
         perfectFinishers: 0,
         windowPerfect: true,
         brokenParts: [],
+        mechanicState: { lastKind: null, lastDecoyAt: 0 },
         phaseBuff: null,
         active: true,
         expiresAt: Date.now() + 120000
@@ -1720,13 +1743,17 @@
     const now = Date.now();
     if (!boss.active) { boss.active = true; boss.expiresAt = now + 120000; }
     const hotspot = hotspotHit && hotspotHit.spot;
-    const autoScale = source === "auto" ? 0.25 : 1;
+    const autoScale = source === "auto" ? (boss.zone === "void" ? 0.1 : 0.25) : 1;
     const strongCatch = Boolean(catchInfo.hasRare || catchInfo.hasLegendary);
     if (boss.phase === 1) {
       const valid = Boolean(hotspot && (!boss.weakpointId || hotspot.id === boss.weakpointId || hotspot.id === boss.hotspotId));
       if (!valid) { renderBossHud(); return; }
       boss.phaseProgress += autoScale * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct + getBossCombatBuffs().bossProgressPct, 0, 1.5));
       boss.expiresAt = now + 120000;
+      if ((boss.zone === "deep" || boss.zone === "abyss") && hotspot) {
+        const candidates = state.sonar.hotspots.filter((spot) => spot.zone === state.currentZone && spot.id !== hotspot.id);
+        if (candidates.length) boss.weakpointId = candidates[Math.floor(Math.random() * candidates.length)].id;
+      }
       emitTide("tide:impact", { type: "rare" });
       if (boss.phaseProgress >= getBossPhaseGoal(boss, 1)) {
         boss.phase = 2;
@@ -1741,15 +1768,24 @@
       return;
     }
     if (boss.phase === 2) {
-      const valid = Boolean(hotspot || strongCatch);
+      let valid = Boolean(hotspot || strongCatch);
+      if (boss.zone === "aurora") valid = strongCatch || Boolean(hotspot && hotspot.type !== "normal");
+      if (boss.zone === "city" && valid) {
+        boss.mechanicState = boss.mechanicState || {};
+        const kind = strongCatch ? "creature" : "hotspot";
+        if (boss.mechanicState.lastKind === kind) valid = false;
+        else boss.mechanicState.lastKind = kind;
+      }
       if (!valid) { renderBossHud(); return; }
-      boss.phaseProgress += autoScale * (strongCatch ? 1.5 : 1) * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct + getBossCombatBuffs().bossProgressPct, 0, 1.5));
+      const phaseTwoGain = strongCatch ? (boss.zone === "rift" ? 2.5 : 1.5) : 1;
+      boss.phaseProgress += autoScale * phaseTwoGain * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct + getBossCombatBuffs().bossProgressPct, 0, 1.5));
       boss.expiresAt = now + 120000;
       if (boss.phaseProgress >= getBossPhaseGoal(boss, 2)) {
         boss.phase = 3;
         boss.phaseProgress = 0;
         boss.finisher = 0;
-        boss.finisherWindowUntil = now + 2200;
+        boss.finisherWindowUntil = now + (boss.zone === "aurora" ? 1800 : 2200);
+        boss.mechanicState = { ...(boss.mechanicState || {}), lastKind: null };
         boss.windowAttempted = false;
         boss.windowPerfect = true;
         boss.brokenParts = Array.from(new Set([...(boss.brokenParts || []), "armor"]));
@@ -1768,8 +1804,9 @@
           boss.windowPerfect = false;
           boss.finisherMisses = Number(boss.finisherMisses || 0) + 1;
         }
-        boss.finisherWindowUntil = now + 4000;
-        showEventBanner("窗口延长", "本次未命中，终结窗口延长 4 秒；已有破坏进度不会重置。", "rare", 2200);
+        const extensionSeconds = boss.zone === "rift" ? 2.5 : 4;
+        boss.finisherWindowUntil = now + extensionSeconds * 1000;
+        showEventBanner("窗口延长", `本次未命中，终结窗口延长 ${extensionSeconds} 秒；已有破坏进度不会重置。`, "rare", 2200);
         renderBossHud();
         return;
       }
@@ -2703,6 +2740,7 @@
         windowPerfect: saved.boss.windowPerfect !== false,
         windowAttempted: Boolean(saved.boss.windowAttempted),
         brokenParts: Array.isArray(saved.boss.brokenParts) ? saved.boss.brokenParts : [],
+        mechanicState: { lastKind: null, lastDecoyAt: 0, ...(saved.boss.mechanicState || {}) },
         phaseBuff: saved.boss.phaseBuff || null,
         weakpointId: saved.boss.weakpointId || null,
         hotspotId: saved.boss.hotspotId || null,
@@ -3177,7 +3215,7 @@
         </div>
         <p class="muted">成功击败必掉史诗装备，并有 25% 概率额外获得传说装备。任何失误都不会回退阶段进度。</p>
       </div><div class="boss-part-strip">${bossParts}</div><div class="boss-phase-checklist">${phaseCards}</div><div class="boss-record-strip"><span><small>本海域击败</small><strong>${bossRecord.kills || 0}</strong></span><span><small>最佳完美终结</small><strong>${Number(bossRecord.bestPerfect || 0).toFixed(2)}</strong></span><span><small>最快击杀</small><strong>${bossRecord.fastestSeconds ? formatDuration(bossRecord.fastestSeconds) : "尚未完成"}</strong></span><span><small>熔铸材料</small><strong>◉ ${getBossMaterialCount("sonarShard")} · ⬡ ${getBossMaterialCount("armorPlate")} · ✦ ${getBossMaterialCount("voidHeart")}</strong></span></div>`;
-      footer = `<button class="modal-button primary" type="button" data-modal-close>${boss ? "返回海面锁定声呐" : "继续捕捞"}</button>`;
+      footer = `<button class="modal-button" type="button" data-boss-archive>查看巨兽档案</button><button class="modal-button primary" type="button" data-modal-close>${boss ? "返回海面锁定声呐" : "继续捕捞"}</button>`;
     }
 
     if (activeModal.type === "expedition") {
@@ -3233,11 +3271,24 @@
           <article class="guide-step"><span>02</span><div><small>成长循环</small><h3>出售 → 升级 → 解锁海域</h3><p>左侧「母港交易」出售渔获，底部「深潜协议」升级永久天赋。金币足够后点击顶部海域标签解锁新海域。</p><ul><li>普通鱼是稳定收入，稀有鱼和传说鱼是主要爆发。</li><li>海域越深，鱼价和稀有率越高，但空网率也会变化。</li><li>不要只堆捕捞，自动化、售价和首领天赋同样重要。</li></ul></div></article>
           <article class="guide-step"><span>03</span><div><small>长期航线</small><h3>深渊航线与节点选择</h3><p>底部「深渊航线」可部署 10–20 分钟航程。成功撒网、命中热点和捕获高稀有鱼都会推进航程。</p><ul><li>抵达节点后会暂停推进，选择金币、合金、结晶、装备保底或首领增益。</li><li>航程等级永久提高全收益、首领奖励和热点持续时间。</li><li>自动撒网只能获得约 45% 的航程推进。</li></ul></div></article>
           <article class="guide-step"><span>04</span><div><small>首领战</small><h3>三阶段破坏巨兽</h3><p>累计捕获当前海域鱼类会召唤首领。首领分为声呐核心、外层护甲和虚空心脏三个阶段。</p><ul><li>第一阶段：把网落在发光弱点，破坏声呐核心。</li><li>第二阶段：命中热点或捕获高稀有鱼，破坏外层护甲。</li><li>第三阶段：红色窗口出现时立即收网；精准命中越完美，传说装备概率越高。</li></ul></div></article>
-          <article class="guide-step"><span>05</span><div><small>构筑系统</small><h3>装备、技能与套装</h3><p>底部「舰载装备」管理 8 个槽位、套装、主动技和图鉴。相同装备会转化为强化或合金。</p><ul><li>装备主动技默认自动释放，手动可精确配合首领窗口。</li><li>五套套装在 2 / 4 / 6 / 8 件时逐层增强。</li><li>深渊航线完整返航会提供打捞装备与保底进度。</li></ul></div></article>
+          <article class="guide-step"><span>05</span><div><small>构筑系统</small><h3>装备、技能与套装</h3><p>底部「舰载装备」管理 8 个槽位、套装、主动技和图鉴。相同装备会转化为强化或合金。</p><ul><li>装备主动技默认自动释放，手动可精确配合首领窗口。</li><li>五套套装在 2 / 4 / 6 / 8 件时逐层增强。</li><li>深渊航线完整返航会提供打捞装备与保底进度。</li><li>首领部位材料可在「巨兽熔铸」制作专属传说装备。</li></ul></div></article>
           <article class="guide-step"><span>06</span><div><small>长期目标</small><h3>图鉴、科研与深渊跃迁</h3><p>第一次捕获鱼种会点亮图鉴并提供永久小加成。科研和协议需要深渊结晶，适合在长期游玩中逐步解锁。</p><ul><li>图鉴星级：100 / 1,000 / 10,000 次累计捕获。</li><li>深渊跃迁会重置金币、鱼舱、普通海域和普通天赋。</li><li>装备、图鉴、成就、科研、协议、首领奖杯和航线等级永久保留。</li></ul></div></article>
         </div>
         <div class="guide-controls"><strong>快捷入口</strong><span><kbd>Space</kbd>撒网</span><span><kbd>S</kbd>出售</span><span><kbd>E</kbd>深潜协议</span><span><kbd>X</kbd>深渊航线</span><span><kbd>G</kbd>舰载装备</span><span><kbd>R/T/Y</kbd>装备技能</span><span><kbd>K</kbd>玩法指南</span></div>`;
       footer = `<button class="modal-button primary" type="button" data-modal-close>明白，开始捕鱼</button>`;
+    }    if (activeModal.type === "bossArchive") {
+      title = "巨兽档案";
+      subtitle = "记录八个海域的首领机制、击败次数、完美终结与最快击杀。未击败的首领仍会显示机制说明。";
+      body = `<div class="boss-archive-grid">${zones.map((zone) => {
+        const def = BOSS_DEFS[zone.id];
+        const mechanic = BOSS_MECHANICS[zone.id];
+        const record = state.bossRecords?.[zone.id] || { kills: 0, bestPerfect: 0, fastestSeconds: 0 };
+        const bossProgress = state.zoneProgress?.[zone.id] || { bossCharge: 0, bossDefeated: 0 };
+        const defeated = Number(record.kills || 0) > 0 || Number(bossProgress.bossDefeated || 0) > 0;
+        const discovered = defeated || Number(bossProgress.bossCharge || 0) > 0 || state.boss?.zone === zone.id;
+        return `<article class="boss-archive-card ${defeated ? "defeated" : discovered ? "discovered" : "unknown"}" style="--boss-color:${zone.id === "rift" ? "#ff744d" : zone.id === "void" ? "#b58cff" : "#67e8f9"}"><div class="boss-archive-head"><span>${def.icon}</span><div><small>${zone.subtitle} · ${zone.name}</small><h3>${def.name}</h3></div><b>${defeated ? `击败 ${record.kills} 次` : discovered ? "已发现" : "未发现"}</b></div><p>${mechanic.description}</p><div class="boss-archive-metrics"><span><small>最快击杀</small><strong>${record.fastestSeconds ? formatDuration(record.fastestSeconds) : "--:--"}</strong></span><span><small>最佳完美终结</small><strong>${Number(record.bestPerfect || 0).toFixed(2)}</strong></span><span><small>首领蓄能</small><strong>${formatInteger(bossProgress.bossCharge)} / ${formatInteger(def.threshold)}</strong></span></div><div class="boss-archive-hints">${mechanic.hints.map((hint, index) => `<span>${index + 1}. ${hint}</span>`).join("")}</div></article>`;
+      }).join("")}</div>`;
+      footer = `<button class="modal-button primary" type="button" data-modal-close>返回海域</button>`;
     }    if (activeModal.type === "profile") {
       const configured = Boolean(window.LeaderboardBridge?.isConfigured?.());
       title = "调查员档案";
@@ -3693,6 +3744,7 @@
       const boardButton = event.target.closest("[data-leaderboard-board]");
       const refreshLeaderboardButton = event.target.closest("[data-leaderboard-refresh]");
       const bossToggle = event.target.closest("[data-boss-toggle]");
+      const bossArchiveButton = event.target.closest("[data-boss-archive]");
       const expeditionRouteButton = event.target.closest("[data-expedition-route]");
       const expeditionCrewButton = event.target.closest("[data-expedition-crew]");
       const expeditionChoiceButton = event.target.closest("[data-expedition-choice]");
@@ -3725,6 +3777,7 @@
       if (boardButton) { state.leaderboard.board = boardButton.dataset.leaderboardBoard; openLeaderboard(); }
       if (refreshLeaderboardButton) openLeaderboard();
       if (bossToggle) { state.ui.bossBannerExpanded = !state.ui.bossBannerExpanded; renderBossHud(); }
+      if (bossArchiveButton) { activeModal = { type: "bossArchive", payload: {} }; renderModal(); }
       if (upgradeGearButton) upgradeEquipment(upgradeGearButton.dataset.upgradeGear);
       if (forgeGearButton) forgeBossEquipment(forgeGearButton.dataset.forgeGear);
 
