@@ -62,3 +62,6 @@ The following Poly Pizza models are bundled locally for the eight regional bosse
 - Dragon Evolved: https://poly.pizza/m/LlwD0QNUPj
 - Manta ray: https://poly.pizza/m/yzD8b7ZHZm
 - Shark: https://poly.pizza/m/AyHTK3zUSG
+## High-quality deepsea models
+
+The final high-quality fish and sea-creature source models are stored in `assets/deepsea/downloads/`. Their authors, source URLs, face counts and CC0/CC-BY licenses are listed in `assets/deepsea/DEEPSEA_ASSET_SOURCES.md` and `assets/deepsea/sketchfab-downloads.json`. The gameplay sprite sheets are baked locally from these models and do not require a runtime Sketchfab connection.

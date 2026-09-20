@@ -2737,6 +2737,11 @@
           <article><strong>Poly by Google</strong><p>CC-BY 3.0 · Fish、Goldfish、Shark 模型 · poly.pizza</p></article>
           <article><strong>jeremy</strong><p>CC-BY 3.0 · Blowfish 模型 · poly.pizza</p></article>
           <article><strong>Anonymous</strong><p>CC-BY 3.0 · Angler Fish 模型 · poly.pizza</p></article>
+          <article><strong>Jungle Jim</strong><p>CC-BY · Alien Fish、热带异变鱼、魔鬼鱼、卡通小丑鱼与深海鮟鱇 · Sketchfab</p></article>
+          <article><strong>HighPolyDensity</strong><p>CC-BY · Zorag 变异鮟鱇与 Stonewisp 变异鳐 · Sketchfab</p></article>
+          <article><strong>AnimalMesh 3D / Mateus Schwaab / Evan</strong><p>CC-BY · 蓝鳃鱼、鳟鱼、旗鱼与吸盘鱼动画模型 · Sketchfab</p></article>
+          <article><strong>anandcartoons / artistSC</strong><p>CC-BY · 变异深海鱼与风格化变异鳐 · Sketchfab</p></article>
+          <article><strong>yanix / GoldenZtuff / Robert Kotsch</strong><p>CC-BY · 水母、金枪鱼与 250+ Fish Pack · Sketchfab</p></article>
           <article><strong>rubberduck / You're Perfect Studio</strong><p>CC0 · 水花、收网与 UI 音效 · OpenGameArt</p></article>
         </div>`;
     }
