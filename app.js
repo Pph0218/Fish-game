@@ -51,9 +51,9 @@
   }
 
   function updateRailState(side, open, pinned) {
-    const rail = side === "left" ? document.getElementById("leftRail") : document.getElementById("rightRail");
-    const toggle = side === "left" ? document.getElementById("leftRailToggle") : document.getElementById("rightRailToggle");
-    const pin = side === "left" ? document.getElementById("leftRailPin") : document.getElementById("rightRailPin");
+    const rail = document.getElementById(side + "Rail");
+    const toggle = document.getElementById(side + "RailToggle");
+    const pin = document.getElementById(side + "RailPin");
     const openKey = side === "left" ? "leftPanelOpen" : "rightPanelOpen";
     const pinKey = side === "left" ? "leftPanelPinned" : "rightPanelPinned";
     state.ui[openKey] = Boolean(open);
@@ -62,8 +62,17 @@
     toggle?.setAttribute("aria-expanded", String(state.ui[openKey]));
     pin?.classList.toggle("active", Boolean(state.ui[pinKey]));
     if (pin) pin.textContent = state.ui[pinKey] ? "已固定" : "固定展开";
+    if (state.ui[openKey]) {
+      const otherSide = side === "left" ? "right" : "left";
+      const otherOpenKey = otherSide === "left" ? "leftPanelOpen" : "rightPanelOpen";
+      const otherRail = document.getElementById(otherSide + "Rail");
+      const otherToggle = document.getElementById(otherSide + "RailToggle");
+      state.ui[otherOpenKey] = false;
+      otherRail?.classList.remove("open");
+      otherToggle?.setAttribute("aria-expanded", "false");
+    }
+    dom.railBackdrop?.classList.toggle("open", Boolean(state.ui.leftPanelOpen || state.ui.rightPanelOpen));
   }
-
   function toggleRail(side, forceOpen) {
     const openKey = side === "left" ? "leftPanelOpen" : "rightPanelOpen";
     const next = forceOpen === undefined ? !state.ui[openKey] : Boolean(forceOpen);
@@ -72,6 +81,10 @@
   }
   function updateKeyboardGuide() {
     if (!dom.keyboardHint) return;
+    if (window.matchMedia?.("(hover: none), (pointer: coarse)").matches) {
+      dom.keyboardHint.hidden = true;
+      return;
+    }
     const collapsed = Boolean(state.ui && state.ui.keyGuideCollapsed);
     dom.keyboardHint.classList.add("visible");
     dom.keyboardHint.classList.toggle("collapsed", collapsed);
@@ -80,6 +93,7 @@
 
   function showKeyboardHint(autoCollapse = false) {
     if (!dom.keyboardHint) return;
+    if (window.matchMedia?.("(hover: none), (pointer: coarse)").matches) return;
     state.ui.keyGuideCollapsed = false;
     updateKeyboardGuide();
     if (autoCollapse) window.setTimeout(() => {
@@ -151,6 +165,7 @@
     comboText: document.getElementById("comboText"),
     comboFill: document.getElementById("comboFill"),
     keyboardHint: document.getElementById("keyboardHint"),
+    railBackdrop: document.getElementById("railBackdrop"),
     fishField: document.getElementById("fishField"),
     bubbleField: document.getElementById("bubbleField"),
     shimmerField: document.getElementById("shimmerField"),
@@ -3064,6 +3079,13 @@
     dom.profileButton.addEventListener("click", () => openModal("profile"));
     dom.ascensionButton.addEventListener("click", () => openModal("ascension"));
     dom.keyboardToggle.addEventListener("click", toggleKeyboardGuide);
+    dom.railBackdrop?.addEventListener("click", () => {
+      updateRailState("left", false);
+      updateRailState("right", false);
+    });
+    document.querySelectorAll("[data-rail-close]").forEach((button) => {
+      button.addEventListener("click", () => updateRailState(button.dataset.railClose, false));
+    });
     ["left", "right"].forEach((side) => {
       const rail = document.getElementById(`${side}Rail`);
       const toggle = document.getElementById(`${side}RailToggle`);
