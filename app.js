@@ -971,6 +971,20 @@
     };
   }
 
+  function getBossCombatBuffs() {
+    const boss = state.boss;
+    const buff = boss?.phaseBuff;
+    if (!buff || Number(buff.until) <= Date.now()) return { catchPct: 0, rareChance: 0, legendChance: 0, bossProgressPct: 0, label: "" };
+    const label = buff.type === "sonar_lock" ? "声呐校准" : buff.type === "armor_break" ? "护甲崩解" : "阶段增益";
+    return {
+      catchPct: Number(buff.catchPct || 0),
+      rareChance: Number(buff.rareChance || 0),
+      legendChance: Number(buff.legendChance || 0),
+      bossProgressPct: Number(buff.bossProgressPct || 0),
+      label
+    };
+  }
+
   function getExpeditionRouteUnlocked(route) {
     return state.unlockedZones.length >= (Number(route?.requiredZones) || 1);
   }
@@ -1617,6 +1631,11 @@
         phaseProgress: 0,
         finisher: 0,
         finisherWindowUntil: 0,
+        finisherMisses: 0,
+        perfectFinishers: 0,
+        windowPerfect: true,
+        brokenParts: [],
+        phaseBuff: null,
         active: true,
         expiresAt: Date.now() + 120000
       };
@@ -1637,13 +1656,15 @@
     if (boss.phase === 1) {
       const valid = Boolean(hotspot && (!boss.weakpointId || hotspot.id === boss.weakpointId || hotspot.id === boss.hotspotId));
       if (!valid) { renderBossHud(); return; }
-      boss.phaseProgress += autoScale * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct, 0, 1));
+      boss.phaseProgress += autoScale * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct + getBossCombatBuffs().bossProgressPct, 0, 1.5));
       boss.expiresAt = now + 120000;
       emitTide("tide:impact", { type: "rare" });
       if (boss.phaseProgress >= getBossPhaseGoal(boss, 1)) {
         boss.phase = 2;
         boss.phaseProgress = 0;
-        showEventBanner("护甲破译", "捕获稀有/传说鱼，或持续命中热点削弱护甲。", "rare", 3200);
+        boss.brokenParts = Array.from(new Set([...(boss.brokenParts || []), "sonar"]));
+        boss.phaseBuff = { type: "sonar_lock", until: now + 15000, rareChance: 0.03, legendChance: 0.005 };
+        showEventBanner("声呐核心已破坏 · 护甲破译", "15 秒声呐校准：稀有率 +3%，传说率 +0.5%。捕获稀有鱼或命中热点继续破甲。", "rare", 3800);
       }
       renderBossHud();
       return;
@@ -1651,33 +1672,54 @@
     if (boss.phase === 2) {
       const valid = Boolean(hotspot || strongCatch);
       if (!valid) { renderBossHud(); return; }
-      boss.phaseProgress += autoScale * (strongCatch ? 1.5 : 1) * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct, 0, 1));
+      boss.phaseProgress += autoScale * (strongCatch ? 1.5 : 1) * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct + getBossCombatBuffs().bossProgressPct, 0, 1.5));
       boss.expiresAt = now + 120000;
       if (boss.phaseProgress >= getBossPhaseGoal(boss, 2)) {
         boss.phase = 3;
         boss.phaseProgress = 0;
         boss.finisher = 0;
         boss.finisherWindowUntil = now + 2200;
-        showEventBanner("终结收网", "抓住收网窗口，点击或按空格完成终结。", "gold", 3200);
+        boss.windowAttempted = false;
+        boss.windowPerfect = true;
+        boss.brokenParts = Array.from(new Set([...(boss.brokenParts || []), "armor"]));
+        boss.phaseBuff = { type: "armor_break", until: now + 20000, catchPct: 0.15, bossProgressPct: 0.12 };
+        showEventBanner("护甲已破坏 · 终结收网", "20 秒护甲崩解：捕获量 +15%。抓住红色窗口完成终结。", "gold", 3800);
       }
       renderBossHud();
       return;
     }
     if (boss.phase === 3) {
       if (now > boss.finisherWindowUntil) {
+        if (!boss.windowAttempted) {
+          boss.windowAttempted = true;
+          boss.windowPerfect = false;
+          boss.finisherMisses = Number(boss.finisherMisses || 0) + 1;
+        }
         boss.finisherWindowUntil = now + 4000;
-        showEventBanner("窗口延长", "首领校准失败，收网窗口延长 4 秒，进度不会重置。", "rare", 2200);
+        showEventBanner("窗口延长", "本次未命中，终结窗口延长 4 秒；已有破坏进度不会重置。", "rare", 2200);
         renderBossHud();
         return;
       }
-      boss.finisher += autoScale * Math.max(.25, 1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct, 0, 1));
+      boss.finisher += autoScale * Math.max(.25, 1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct + getBossCombatBuffs().bossProgressPct, 0, 1.5));
+      if (source === "auto") boss.perfectFinishers = Number(boss.perfectFinishers || 0) + 0.25;
+      else if (!boss.windowAttempted || boss.windowPerfect) boss.perfectFinishers = Number(boss.perfectFinishers || 0) + 1;
+      boss.windowAttempted = false;
+      boss.windowPerfect = true;
       boss.expiresAt = now + 120000;
       if (boss.finisher >= getBossPhaseGoal(boss, 3)) {
+        const perfectFinishers = Number(boss.perfectFinishers) || 0;
+        const missedFinishers = Number(boss.finisherMisses) || 0;
+        const flawless = missedFinishers === 0;
+        const legendaryChance = clamp(0.25 + perfectFinishers * 0.08 + (flawless ? 0.1 : 0), 0, 0.8);
+        const droppedLegendary = Math.random() < legendaryChance;
         createEquipment(Object.keys(EQUIPMENT_SLOTS)[Math.floor(Math.random() * Object.keys(EQUIPMENT_SLOTS).length)], "epic");
-        if (Math.random() < 0.25) createEquipment(Object.keys(EQUIPMENT_SLOTS)[Math.floor(Math.random() * Object.keys(EQUIPMENT_SLOTS).length)], "legendary");
-        const bossRewardScale = 1 + clamp(getAllStatBonuses().bossRewardPct, 0, 5);
-        state.ascension.crystals += Math.round(10 * bossRewardScale);
-        state.equipment.alloy += Math.round(15 * bossRewardScale);
+        if (droppedLegendary) createEquipment(Object.keys(EQUIPMENT_SLOTS)[Math.floor(Math.random() * Object.keys(EQUIPMENT_SLOTS).length)], "legendary");
+        const bossRewardScale = 1 + clamp(getAllStatBonuses().bossRewardPct, 0, 5) + perfectFinishers * 0.1;
+        const crystalReward = Math.round(10 * bossRewardScale);
+        const alloyReward = Math.round(15 * bossRewardScale);
+        state.ascension.crystals += crystalReward;
+        state.equipment.alloy += alloyReward;
+        state.equipment.rarePity = clamp((Number(state.equipment.rarePity) || 0) + Math.round(perfectFinishers * 5), 0, 100);
         const progress = state.zoneProgress[state.currentZone];
         progress.bossCharge = Math.max(0, progress.bossCharge - BOSS_DEFS[state.currentZone].threshold);
         progress.bossDefeated += 1;
@@ -1687,7 +1729,7 @@
         recordContract("boss", 1);
         renderBossHud();
         flashScreen("ultimate");
-        showEventBanner("首领已击败", "获得史诗装备、10 结晶、15 合金与永久海域奖杯。", "gold", 5200);
+        showEventBanner("首领已击败", `获得史诗装备${droppedLegendary ? "与传说装备" : ""}、${crystalReward} 结晶、${alloyReward} 合金 · 完美终结 ${perfectFinishers.toFixed(2)}`, "gold", 5600);
         saveGame(true);
       } else {
         renderBossHud();
@@ -1705,7 +1747,15 @@
     const phaseName = BOSS_DEFS[boss.zone]?.phases?.[boss.phase - 1] || "猎杀";
     dom.bossHud.hidden = false;
     const expanded = Boolean(state.ui?.bossBannerExpanded);
-    dom.bossHud.innerHTML = `<button class="boss-banner-toggle" type="button" data-boss-toggle><span class="boss-icon">${boss.icon}</span><span><small>第 ${boss.phase} 阶段 · ${phaseName} · ${boss.active ? formatDuration(remaining) : "潜伏中"}</small><strong>${boss.name}</strong><em>${getBossPhaseInstruction(boss)}</em><i><b style="width:${Math.round((phaseProgress / phaseGoal) * 100)}%"></b></i></span><em>${Math.round((phaseProgress / phaseGoal) * 100)}%</em></button><div class="boss-banner-details" ${expanded ? "" : "hidden"}><span>弱点</span><b>${boss.phase === 1 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : boss.phase > 1 ? "完成" : "待开始"}</b><span>破甲</span><b>${boss.phase === 2 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : boss.phase > 2 ? "完成" : "待开始"}</b><span>终结</span><b>${boss.phase === 3 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : "待开始"}</b></div>`;
+    const bossBuff = getBossCombatBuffs();
+    const buffSeconds = boss.phaseBuff?.until ? Math.max(0, Math.ceil((boss.phaseBuff.until - Date.now()) / 1000)) : 0;
+    const parts = [
+      ["sonar", "声呐核心"],
+      ["armor", "外层护甲"],
+      ["core", "虚空心脏"]
+    ].map(([id, label]) => `${label}${(boss.brokenParts || []).includes(id) ? "✓" : "○"}`).join(" · ");
+    const instruction = `${getBossPhaseInstruction(boss)}${bossBuff.label ? ` · ${bossBuff.label} ${buffSeconds}s` : ""}`;
+    dom.bossHud.innerHTML = `<button class="boss-banner-toggle" type="button" data-boss-toggle><span class="boss-icon">${boss.icon}</span><span><small>第 ${boss.phase} 阶段 · ${phaseName} · ${boss.active ? formatDuration(remaining) : "潜伏中"}</small><strong>${boss.name}</strong><em>${instruction}</em><i><b style="width:${Math.round((phaseProgress / phaseGoal) * 100)}%"></b></i></span><em>${Math.round((phaseProgress / phaseGoal) * 100)}%</em></button><div class="boss-banner-details" ${expanded ? "" : "hidden"}><span>弱点</span><b>${boss.phase === 1 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : boss.phase > 1 ? "完成" : "待开始"}</b><span>破甲</span><b>${boss.phase === 2 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : boss.phase > 2 ? "完成" : "待开始"}</b><span>终结</span><b>${boss.phase === 3 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : "待开始"}</b><span>部位</span><b>${parts}</b><span>完美终结</span><b>${Number(boss.perfectFinishers || 0).toFixed(2)}</b></div>`;
     emitTide("tide:boss", { boss: { ...boss, phaseGoal, remaining, phaseName } });
   }
 
@@ -1912,7 +1962,7 @@
     const ultimateMult = (getLevel("sky_net") > 0 ? 2 : 1) * (getLevel("school_beacon") > 0 ? 2 : 1);
     const achievementMult = (1 + achievementBonus("amount")) * (1 + getAllStatBonuses().catchPct);
     const migrationMult = state.activeEvent && state.activeEvent.type === "migration" && state.activeEvent.until > Date.now() ? 2 : 1;
-    return wideBonus * ultimateMult * achievementMult * migrationMult * (1 + getGearSkillBonus("catchPct")) * (1 + getExpeditionBonuses().catchPct);
+    return wideBonus * ultimateMult * achievementMult * migrationMult * (1 + getGearSkillBonus("catchPct")) * (1 + getExpeditionBonuses().catchPct) * (1 + getBossCombatBuffs().catchPct);
   }
 
   function getDoubleChance() {
@@ -1924,11 +1974,11 @@
   }
 
   function getRareChance() {
-    return clamp(currentZone().rareChance + getLevel("sonar") * 0.03 + achievementBonus("rare") + getAllStatBonuses().rareChance + getEcologyModifiers().rareBonus + getGearSkillBonus("rareChance") + getExpeditionBonuses().rareChance, 0, 0.75);
+    return clamp(currentZone().rareChance + getLevel("sonar") * 0.03 + achievementBonus("rare") + getAllStatBonuses().rareChance + getEcologyModifiers().rareBonus + getGearSkillBonus("rareChance") + getExpeditionBonuses().rareChance + getBossCombatBuffs().rareChance, 0, 0.75);
   }
 
   function getLegendChance() {
-    return clamp(currentZone().legendaryChance + getLevel("golden_lure") * 0.01 + getAllStatBonuses().legendChance + getEcologyModifiers().legendBonus + getGearSkillBonus("legendChance") + getExpeditionBonuses().legendChance, 0, 0.25);
+    return clamp(currentZone().legendaryChance + getLevel("golden_lure") * 0.01 + getAllStatBonuses().legendChance + getEcologyModifiers().legendBonus + getGearSkillBonus("legendChance") + getExpeditionBonuses().legendChance + getBossCombatBuffs().legendChance, 0, 0.25);
   }
 
   function getSaleMultiplier(processed = false) {
@@ -2570,6 +2620,12 @@
         phase: Number(saved.boss.phase) || 1,
         phaseProgress: Number(saved.boss.phaseProgress) || 0,
         finisher: Number(saved.boss.finisher) || 0,
+        finisherMisses: Number(saved.boss.finisherMisses) || 0,
+        perfectFinishers: Number(saved.boss.perfectFinishers) || 0,
+        windowPerfect: saved.boss.windowPerfect !== false,
+        windowAttempted: Boolean(saved.boss.windowAttempted),
+        brokenParts: Array.isArray(saved.boss.brokenParts) ? saved.boss.brokenParts : [],
+        phaseBuff: saved.boss.phaseBuff || null,
         weakpointId: saved.boss.weakpointId || null,
         hotspotId: saved.boss.hotspotId || null,
         locks: Number(saved.boss.locks) || 0,
@@ -3002,9 +3058,9 @@
       title = "巨兽猎杀指南";
       subtitle = "首领战分为三个阶段，任何失误都不会清空已完成进度。";
       body = `<div class="boss-tutorial">
-        <article><span>01</span><div><small>声呐追踪</small><strong>把网落在发光弱点上</strong><p>弱点会在声呐热点中移动。手动撒网命中正确位置，自动撒网只计算 25% 进度。</p></div></article>
-        <article><span>02</span><div><small>护甲破译</small><strong>命中热点或捕获高稀有鱼</strong><p>普通正确命中增加 1 格，稀有鱼增加 1.5 格，传说鱼增加 2 格。进度只增不减。</p></div></article>
-        <article><span>03</span><div><small>终结收网</small><strong>红色窗口出现时立即撒网</strong><p>按空格、点击海面或使用手机按钮完成终结。错过窗口只会延长 4 秒，不会失败重置。</p></div></article>
+        <article><span>01</span><div><small>声呐追踪</small><strong>把网落在发光弱点上</strong><p>破坏声呐核心：弱点会在热点间移动。手动落网命中正确位置，自动撒网只计算 25% 进度。核心破坏后获得 15 秒声呐校准。</p></div></article>
+        <article><span>02</span><div><small>护甲破译</small><strong>命中热点或捕获高稀有鱼</strong><p>破坏外层护甲：普通命中增加 1 格，稀有鱼增加 1.5 格，传说鱼增加 2 格。护甲破坏后获得 20 秒捕获与首领进度增益。</p></div></article>
+        <article><span>03</span><div><small>终结收网</small><strong>红色窗口出现时立即撒网</strong><p>破坏虚空心脏：在红色窗口内按空格、点击或触屏完成终结。精准命中会增加完美终结和传说装备概率。</p></div></article>
       </div>`;
       footer = `<button class="modal-button primary" type="button" data-modal-close>明白，开始猎杀</button>`;
     }
@@ -3018,6 +3074,11 @@
       const phaseGoal = boss ? (boss.phase === 1 ? 2 : boss.phase === 2 ? 6 : 3) : 0;
       const phaseProgress = boss ? (boss.phase === 3 ? boss.finisher : boss.phaseProgress) : 0;
       const phaseCards = ["声呐追踪","护甲破译","终结收网"].map((label, index) => { const phase = index + 1; const goal = getBossPhaseGoal(state.currentZone, phase); const done = boss && boss.phase > phase ? goal : boss && boss.phase === phase ? (phase === 3 ? boss.finisher : boss.phaseProgress) : 0; return `<article class="boss-phase-step ${boss && boss.phase === phase ? "current" : ""} ${done >= goal ? "done" : ""}"><span>${phase}</span><div><small>${label}</small><strong>${phase === 1 ? "命中发光弱点" : phase === 2 ? "命中热点或捕获高稀有鱼" : "在红色窗口内收网"}</strong><p>${formatNumber(done)} / ${formatNumber(goal)}</p></div></article>`; }).join("");
+      const bossParts = [
+        ["sonar", "声呐核心", "第一阶段"],
+        ["armor", "外层护甲", "第二阶段"],
+        ["core", "虚空心脏", "终结阶段"]
+      ].map(([id, label, phase]) => `<span class="${boss && (boss.brokenParts || []).includes(id) ? "broken" : ""}"><i></i><small>${phase}</small><strong>${label}</strong><b>${boss && (boss.brokenParts || []).includes(id) ? "已破坏" : "待破坏"}</b></span>`).join("");
       subtitle = boss ? `第 ${boss.phase} 阶段 · ${def.phases[boss.phase - 1]} · 当前进度 ${Math.round((phaseProgress / phaseGoal) * 100)}%。` : `当前海域捕获成长 ${formatInteger(progress.bossCharge)} / ${formatInteger(def.threshold)}。`;
       body = `<div class="boss-card ${boss ? "active" : ""}">
         <div class="boss-emblem">${boss ? boss.icon : "☠"}</div>
@@ -3029,7 +3090,7 @@
           <span><small>已击败</small><strong>${progress.bossDefeated}</strong></span>
         </div>
         <p class="muted">成功击败必掉史诗装备，并有 25% 概率额外获得传说装备。任何失误都不会回退阶段进度。</p>
-      </div><div class="boss-phase-checklist">${phaseCards}</div>`;
+      </div><div class="boss-part-strip">${bossParts}</div><div class="boss-phase-checklist">${phaseCards}</div>`;
       footer = `<button class="modal-button primary" type="button" data-modal-close>${boss ? "返回海面锁定声呐" : "继续捕捞"}</button>`;
     }
 

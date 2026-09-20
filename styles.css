@@ -5091,3 +5091,75 @@ button:not(:disabled):hover {
     flex: 1 1 42%;
   }
 }
+
+.boss-part-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.boss-part-strip > span {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid rgba(139, 216, 235, .13);
+  border-radius: 13px;
+  background: rgba(5, 18, 35, .42);
+  opacity: .72;
+}
+
+.boss-part-strip > span.broken {
+  border-color: rgba(255, 200, 103, .42);
+  background: linear-gradient(145deg, rgba(126, 83, 30, .22), rgba(5, 18, 35, .46));
+  opacity: 1;
+}
+
+.boss-part-strip i {
+  grid-row: 1 / span 2;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #607c8e;
+  box-shadow: 0 0 0 4px rgba(96, 124, 142, .08);
+}
+
+.boss-part-strip .broken i {
+  background: #ffd36a;
+  box-shadow: 0 0 12px rgba(255, 194, 83, .58), 0 0 0 4px rgba(255, 194, 83, .1);
+}
+
+.boss-part-strip small,
+.boss-part-strip strong,
+.boss-part-strip b {
+  display: block;
+  min-width: 0;
+}
+
+.boss-part-strip small {
+  color: rgba(155, 213, 226, .62);
+  font-size: 8px;
+}
+
+.boss-part-strip strong {
+  color: #ecffff;
+  font-size: 10px;
+}
+
+.boss-part-strip b {
+  grid-column: 2;
+  color: #86e9ef;
+  font-size: 8px;
+}
+
+.boss-part-strip .broken b {
+  color: #ffd66b;
+}
+
+@media (max-width: 760px) {
+  .boss-part-strip {
+    grid-template-columns: 1fr;
+  }
+}

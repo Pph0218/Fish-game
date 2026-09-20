@@ -945,6 +945,9 @@ function setBossEncounter(data = null) {
   bossVisual.userData.baseScale = scale;
   bossVisual.scale.setScalar(scale);
   setBossPhase(data.phase || 1, data.phaseProgress || 0);
+  const brokenParts = new Set(Array.isArray(data.brokenParts) ? data.brokenParts : []);
+  if (bossVisual.userData.weakpoint) bossVisual.userData.weakpoint.visible = data.phase === 1 && !brokenParts.has("sonar");
+  if (bossVisual.userData.ring?.material) bossVisual.userData.ring.material.opacity = brokenParts.has("armor") ? 0.38 : 0.66;
   if (!models[profile.model]) {
     ensureModelAsset(profile.model)
       .then(() => rebuildBossVisual(data.zone))
