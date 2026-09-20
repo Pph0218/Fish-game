@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#020817">
   <title>潮汐渔场 · 深渊回声</title>
-  <link rel="stylesheet" href="styles.css?v=20260920-39">
+  <link rel="stylesheet" href="styles.css?v=20260920-42">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
   <canvas class="ocean-canvas" id="oceanCanvas" aria-hidden="true"></canvas>
-  <div class="app" id="app" data-zone="shallow" data-app-version="20260920-39">
+  <div class="app" id="app" data-zone="shallow" data-app-version="20260920-42">
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">
@@ -174,6 +174,7 @@
         <div class="cast-console" id="castConsole">
           <div class="cast-console-copy"><span><strong id="castPrompt">点击海面撒网</strong><small id="castEstimate">每网约 1–2 条鱼</small></span></div>
           <div class="cast-console-meta"><b id="lastCastText">等待第一网</b><small>空格连续撒网</small><span class="cast-console-event" id="eventCard"><i id="eventIcon">≈</i><span id="eventTitle">风平浪静</span><b id="eventTimer">--:--</b><span id="eventText" hidden>下一次随机事件即将到来。</span></span></div>
+          <button class="cast-autofish-button" id="autoFishToggle" type="button" aria-pressed="false"><span>自动</span><b id="autoFishToggleText">关闭</b></button>
           <button class="cast-console-button" id="castButton" type="button">撒网</button>
         </div>
         <div class="gear-skill-module" id="gearSkillModule"><button class="gear-skill-mode" id="gearSkillMode" type="button" data-gear-skill-mode>协同释放</button><div class="gear-skill-hud" id="gearSkillHud"></div></div>
@@ -237,22 +238,22 @@
   <div class="keyboard-hint" id="keyboardHint" aria-live="polite">
     <button type="button" class="keyboard-toggle" id="keyboardToggle"><strong>⌨ 快捷键</strong><span>H</span></button>
     <div class="keyboard-list" id="keyboardList">
-      <span><kbd>Space</kbd>连续撒网</span><span><kbd>S</kbd>出售</span><span><kbd>F</kbd>加工</span><span><kbd>1–8</kbd>海域</span><span><kbd>E</kbd>深潜协议</span><span><kbd>A</kbd>成就</span><span><kbd>C</kbd>图鉴</span><span><kbd>G</kbd>舰载装备</span><span><kbd>R/T/Y</kbd>装备技能</span><span><kbd>Q</kbd>深潜委托</span><span><kbd>X</kbd>深渊航线</span><span><kbd>K</kbd>玩法指南</span><span><kbd>B</kbd>巨兽信号</span><span><kbd>L</kbd>深潜排行</span><span><kbd>P</kbd>调查员档案</span><span><kbd>M</kbd>静音</span><span><kbd>Esc</kbd>关闭面板</span>
+      <span><kbd>Space</kbd>连续撒网</span><span><kbd>V</kbd>自动捕鱼</span><span><kbd>S</kbd>出售</span><span><kbd>F</kbd>加工</span><span><kbd>1–8</kbd>海域</span><span><kbd>E</kbd>深潜协议</span><span><kbd>A</kbd>成就</span><span><kbd>C</kbd>图鉴</span><span><kbd>G</kbd>舰载装备</span><span><kbd>R/T/Y</kbd>装备技能</span><span><kbd>Q</kbd>深潜委托</span><span><kbd>X</kbd>深渊航线</span><span><kbd>K</kbd>玩法指南</span><span><kbd>B</kbd>巨兽信号</span><span><kbd>L</kbd>深潜排行</span><span><kbd>P</kbd>调查员档案</span><span><kbd>M</kbd>静音</span><span><kbd>Esc</kbd>关闭面板</span>
     </div>
   </div>
   <div class="modal-layer" id="modalLayer" role="presentation"></div>
   <div class="toast-root" id="toastRoot" aria-live="polite"></div>
 
   <script src="vendor/three/three.global.js"></script>
-  <script src="assets/fish/sprites-data.js?v=20260920-39"></script>
-  <script src="assets/fish/custom-manifest.js?v=20260920-39"></script>
-  <script src="fish-art.js?v=20260920-39"></script>
-  <script src="spriteFish.js?v=20260920-39"></script>
-  <script src="leaderboard-config.js?v=20260920-39"></script>
-  <script src="leaderboard.js?v=20260920-39"></script>
+  <script src="assets/fish/sprites-data.js?v=20260920-42"></script>
+  <script src="assets/fish/custom-manifest.js?v=20260920-42"></script>
+  <script src="fish-art.js?v=20260920-42"></script>
+  <script src="spriteFish.js?v=20260920-42"></script>
+  <script src="leaderboard-config.js?v=20260920-42"></script>
+  <script src="leaderboard.js?v=20260920-42"></script>
   <script src="vendor/three/GLTFLoader.global.js"></script>
-  <script src="audio.js?v=20260920-39"></script>
-  <script src="app.js?v=20260920-39"></script>
-  <script src="ocean3d.js?v=20260920-39"></script>
+  <script src="audio.js?v=20260920-42"></script>
+  <script src="app.js?v=20260920-42"></script>
+  <script src="ocean3d.js?v=20260920-42"></script>
 </body>
 </html>

@@ -108,6 +108,33 @@
     updateKeyboardGuide();
     saveGame(true);
   }
+  const effectPools = new WeakMap();
+
+  function getEffectPool(container, tagName, baseClass) {
+    let groups = effectPools.get(container);
+    if (!groups) { groups = new Map(); effectPools.set(container, groups); }
+    const key = `${tagName}:${baseClass}`;
+    if (!groups.has(key)) groups.set(key, []);
+    return groups.get(key);
+  }
+
+  function acquireEffect(container, tagName, baseClass) {
+    const pool = getEffectPool(container, tagName, baseClass);
+    const node = pool.pop() || document.createElement(tagName);
+    node.className = baseClass;
+    node.style.cssText = "";
+    container.appendChild(node);
+    return node;
+  }
+
+  function releaseEffect(container, node, tagName, baseClass) {
+    if (!node) return;
+    node.remove();
+    node.className = baseClass;
+    node.style.cssText = "";
+    const pool = getEffectPool(container, tagName, baseClass);
+    if (pool.length < 32) pool.push(node);
+  }
   function trimFx(container, selector, limit) {
     if (!container) return;
     const nodes = container.querySelectorAll(selector);
@@ -152,6 +179,8 @@
     seaButton: document.getElementById("seaButton"),
     castConsole: document.getElementById("castConsole"),
     castButton: document.getElementById("castButton"),
+    autoFishToggle: document.getElementById("autoFishToggle"),
+    autoFishToggleText: document.getElementById("autoFishToggleText"),
     lastCastText: document.getElementById("lastCastText"),
     castPrompt: document.getElementById("castPrompt"),
     castEstimate: document.getElementById("castEstimate"),
@@ -861,7 +890,7 @@
       bossTutorialSeen: false,
       bossMaterials: { sonarShard: 0, armorPlate: 0, voidHeart: 0 },
       bossRecords: {},
-      ui: { keyGuideCollapsed: false, guideSeen: false, contractTab: "daily", expandedBranch: "net_mastery", expandedGroup: 0, equipmentTab: "equipped", bossBannerExpanded: false, leftPanelOpen: false, rightPanelOpen: false, leftPanelPinned: false, rightPanelPinned: false }
+      ui: { keyGuideCollapsed: false, guideSeen: false, contractTab: "daily", autofishEnabled: false, performanceProfile: "auto", expandedBranch: "net_mastery", expandedGroup: 0, equipmentTab: "equipped", bossBannerExpanded: false, leftPanelOpen: false, rightPanelOpen: false, leftPanelPinned: false, rightPanelPinned: false }
     };
   }
 
@@ -876,6 +905,7 @@
   let autoCastTimer = null;
   let netImpactTimer = null;
   let lastNormalImpactAt = 0;
+  let cachedHoldTarget = null;
   let saveFlashTimer = null;
   let eventBannerTimer = null;
   let zoneScanTimer = null;
@@ -890,6 +920,10 @@
   let lastEcologyUpdate = 0;
   let ecologyVisualSignature = '';
   let lastFishDensityTarget = 0;
+  let sonarVisualSignature = "";
+  const sonarNodes = new Map();
+  let gearSkillHudSignature = "";
+  let bossHudSignature = "";
 
   function currentZone() {
     return byId(zones, state.currentZone) || zones[0];
@@ -1794,31 +1828,49 @@
     if (!dom.gearSkillHud) return;
     const equipped = getEquippedActiveSkills();
     const selected = (state.equipment?.skillLoadout || []).filter((id) => equipped.includes(id)).slice(0, 3);
-    dom.gearSkillHud.innerHTML = selected.length ? selected.map((skillId) => {
-      const skill = GEAR_SKILLS[skillId];
+    const mode = state.equipment?.skillMode || "auto";
+    const signature = `${selected.join(",")}|${mode}`;
+    if (signature !== gearSkillHudSignature) {
+      dom.gearSkillHud.innerHTML = selected.length ? selected.map((skillId) => { const skill = GEAR_SKILLS[skillId]; return `<button type="button" class="gear-skill-button" data-gear-skill="${skillId}" style="--skill-color:${skill.color}"><b>${skill.icon}</b><span><strong>${skill.name}</strong><small></small></span></button>`; }).join("") : `<span class="gear-skill-empty">装备带主动技的装备后在此释放 · <kbd>G</kbd> 打开舰载装备</span>`;
+      gearSkillHudSignature = signature;
+    }
+    selected.forEach((skillId, index) => {
+      const button = dom.gearSkillHud.querySelector(`[data-gear-skill="${skillId}"]`);
+      if (!button) return;
       const remaining = getGearSkillCooldownRemaining(skillId);
       const active = gearSkillBuffs[skillId] && gearSkillBuffs[skillId].until > Date.now();
-      return `<button type="button" class="gear-skill-button ${active ? "active" : ""}" data-gear-skill="${skillId}" ${remaining > 0 ? "disabled" : ""} style="--skill-color:${skill.color}"><b>${skill.icon}</b><span><strong>${skill.name}</strong><small>${remaining > 0 ? `${remaining.toFixed(1)}s` : active ? "ACTIVE" : ["R", "T", "Y"][selected.indexOf(skillId)] || "技能"}</small></span></button>`;
-    }).join("") : `<span class="gear-skill-empty">装备带主动技的装备后在此释放 · <kbd>G</kbd> 打开舰载装备</span>`;
-    if (!(state.equipment.skillLoadout || []).length && equipped.length) state.equipment.skillLoadout = equipped.slice(0, 3);
-    dom.gearSkillHud.parentElement?.classList.toggle("empty", selected.length === 0);
-    const activeSlot = Object.entries(EQUIPMENT_SLOTS).find(([slot]) => {
-      const item = state.equipment.equipped[slot] && state.equipment.owned[state.equipment.equipped[slot]];
-      return item && getEquipmentArchetype(slot, item).activeSkill;
+      button.classList.toggle("active", Boolean(active));
+      button.disabled = remaining > 0;
+      const detail = button.querySelector("small");
+      if (detail) detail.textContent = remaining > 0 ? `${remaining.toFixed(1)}s` : active ? "ACTIVE" : ["R", "T", "Y"][index] || "技能";
     });
-    if (activeSlot) {
-      const item = state.equipment.owned[state.equipment.equipped[activeSlot[0]]];
-      emitTide("tide:gear-aura", { slot: activeSlot[0], rarity: item.rarity, active: selected.length > 0 });
-    }
-    dom.gearSkillMode.textContent = (state.equipment?.skillMode || "auto") === "auto" ? "协同释放" : "手动协同";
+    dom.gearSkillHud.parentElement?.classList.toggle("empty", selected.length === 0);
+    const activeSlot = Object.entries(EQUIPMENT_SLOTS).find(([slot]) => { const item = state.equipment.equipped[slot] && state.equipment.owned[state.equipment.equipped[slot]]; return item && getEquipmentArchetype(slot, item).activeSkill; });
+    if (activeSlot) { const item = state.equipment.owned[state.equipment.equipped[activeSlot[0]]]; emitTide("tide:gear-aura", { slot: activeSlot[0], rarity: item.rarity, active: selected.length > 0 }); }
+    dom.gearSkillMode.textContent = mode === "auto" ? "协同释放" : "手动协同";
   }
   function renderSonarHotspots() {
     if (!dom.sonarLayer) return;
     const hotspots = (state.sonar.hotspots || []).filter((spot) => spot.zone === state.currentZone);
-    dom.sonarLayer.innerHTML = hotspots.map((spot) => { const remaining = Math.max(0, Math.ceil(((Number(spot.expiresAt) || Date.now()) - Date.now()) / 1000)); return `<span class="sonar-hotspot ${spot.type}${spot.decoy ? " decoy" : ""}" style="--x:${spot.x}%;--y:${spot.y}%;--size:${spot.radius * 2}%;--delay:${(spot.bornAt || 0) % 1400}ms"><i></i><b>${spot.decoy ? "珊瑚幻影" : HOTSPOT_TYPES[spot.type].name}</b><small>范围 ${Math.round(spot.radius)}% · ${remaining}s</small></span>`; }).join("");
+    const signature = hotspots.map((spot) => `${spot.id}:${spot.type}:${spot.decoy ? "d" : "n"}`).join("|");
+    if (signature !== sonarVisualSignature) {
+      dom.sonarLayer.innerHTML = hotspots.map((spot) => `<span class="sonar-hotspot ${spot.type}${spot.decoy ? " decoy" : ""}" data-hotspot-id="${spot.id}" style="--x:${spot.x}%;--y:${spot.y}%;--size:${spot.radius * 2}%;--delay:${(spot.bornAt || 0) % 1400}ms"><i></i><b>${spot.decoy ? "珊瑚幻影" : HOTSPOT_TYPES[spot.type].name}</b><small></small></span>`).join("");
+      sonarNodes.clear();
+      dom.sonarLayer.querySelectorAll("[data-hotspot-id]").forEach((node) => sonarNodes.set(node.dataset.hotspotId, node));
+      sonarVisualSignature = signature;
+    }
+    hotspots.forEach((spot) => {
+      const node = sonarNodes.get(spot.id) || dom.sonarLayer.querySelector(`[data-hotspot-id="${spot.id}"]`);
+      if (!node) return;
+      node.style.setProperty("--x", `${spot.x}%`);
+      node.style.setProperty("--y", `${spot.y}%`);
+      node.style.setProperty("--size", `${spot.radius * 2}%`);
+      const remaining = Math.max(0, Math.ceil(((Number(spot.expiresAt) || Date.now()) - Date.now()) / 1000));
+      const detail = node.querySelector("small");
+      if (detail) detail.textContent = `范围 ${Math.round(spot.radius)}% · ${remaining}s`;
+    });
     emitTide("tide:sonar", { hotspots: hotspots.map((spot) => ({ id: spot.id, type: spot.type, x: spot.x, y: spot.y, radius: spot.radius })) });
   }
-
   function getBossPhaseGoal(bossOrZone, phase = 1) {
     const zoneId = typeof bossOrZone === "string" ? bossOrZone : bossOrZone?.zone;
     const index = Math.max(0, zones.findIndex((zone) => zone.id === zoneId));
@@ -1995,25 +2047,41 @@
   function renderBossHud() {
     if (!dom.bossHud) return;
     const boss = state.boss;
-    if (!boss || boss.zone !== state.currentZone) { dom.bossHud.hidden = true; return; }
+    if (!boss || boss.zone !== state.currentZone) { dom.bossHud.hidden = true; bossHudSignature = ""; return; }
     const phaseGoal = getBossPhaseGoal(boss, boss.phase);
     const phaseProgress = boss.phase === 3 ? boss.finisher : boss.phaseProgress;
     const remaining = boss.active ? Math.max(0, (boss.expiresAt - Date.now()) / 1000) : 0;
     const phaseName = BOSS_DEFS[boss.zone]?.phases?.[boss.phase - 1] || "猎杀";
-    dom.bossHud.hidden = false;
     const expanded = Boolean(state.ui?.bossBannerExpanded);
     const bossBuff = getBossCombatBuffs();
     const buffSeconds = boss.phaseBuff?.until ? Math.max(0, Math.ceil((boss.phaseBuff.until - Date.now()) / 1000)) : 0;
-    const parts = [
-      ["sonar", "声呐核心"],
-      ["armor", "外层护甲"],
-      ["core", "虚空心脏"]
-    ].map(([id, label]) => `${label}${(boss.brokenParts || []).includes(id) ? "✓" : "○"}`).join(" · ");
+    const parts = [["sonar", "声呐核心"], ["armor", "外层护甲"], ["core", "虚空心脏"]].map(([id, label]) => `${label}${(boss.brokenParts || []).includes(id) ? "✓" : "○"}`).join(" · ");
     const instruction = `${getBossPhaseInstruction(boss)}${bossBuff.label ? ` · ${bossBuff.label} ${buffSeconds}s` : ""}`;
-    dom.bossHud.innerHTML = `<button class="boss-banner-toggle" type="button" data-boss-toggle><span class="boss-icon">${boss.icon}</span><span><small>第 ${boss.phase} 阶段 · ${phaseName} · ${boss.active ? formatDuration(remaining) : "潜伏中"}</small><strong>${boss.name}</strong><em>${instruction}</em><i><b style="width:${Math.round((phaseProgress / phaseGoal) * 100)}%"></b></i></span><em>${Math.round((phaseProgress / phaseGoal) * 100)}%</em></button><div class="boss-banner-details" ${expanded ? "" : "hidden"}><span>弱点</span><b>${boss.phase === 1 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : boss.phase > 1 ? "完成" : "待开始"}</b><span>破甲</span><b>${boss.phase === 2 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : boss.phase > 2 ? "完成" : "待开始"}</b><span>终结</span><b>${boss.phase === 3 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : "待开始"}</b><span>部位</span><b>${parts}</b><span>完美终结</span><b>${Number(boss.perfectFinishers || 0).toFixed(2)}</b></div>`;
+    const signature = `${boss.zone}|${boss.name}|${boss.phase}|${expanded ? 1 : 0}|${parts}|${bossBuff.label}`;
+    dom.bossHud.hidden = false;
+    if (signature !== bossHudSignature) {
+      dom.bossHud.innerHTML = `<button class="boss-banner-toggle" type="button" data-boss-toggle><span class="boss-icon">${boss.icon}</span><span><small data-boss-remaining>第 ${boss.phase} 阶段 · ${phaseName} · ${boss.active ? formatDuration(remaining) : "潜伏中"}</small><strong>${boss.name}</strong><em data-boss-instruction>${instruction}</em><i><b data-boss-progress style="width:${Math.round((phaseProgress / phaseGoal) * 100)}%"></b></i></span><em data-boss-percent>${Math.round((phaseProgress / phaseGoal) * 100)}%</em></button><div class="boss-banner-details" ${expanded ? "" : "hidden"}><span>弱点</span><b data-boss-weakness>${boss.phase === 1 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : boss.phase > 1 ? "完成" : "待开始"}</b><span>破甲</span><b data-boss-armor>${boss.phase === 2 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : boss.phase > 2 ? "完成" : "待开始"}</b><span>终结</span><b data-boss-finisher>${boss.phase === 3 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : "待开始"}</b><span>部位</span><b data-boss-parts>${parts}</b><span>完美终结</span><b data-boss-perfect>${Number(boss.perfectFinishers || 0).toFixed(2)}</b></div>`;
+      bossHudSignature = signature;
+    }
+    const progress = `${Math.round((phaseProgress / phaseGoal) * 100)}%`;
+    const progressBar = dom.bossHud.querySelector("[data-boss-progress]");
+    const percent = dom.bossHud.querySelector("[data-boss-percent]");
+    const remainingText = dom.bossHud.querySelector("[data-boss-remaining]");
+    const instructionText = dom.bossHud.querySelector("[data-boss-instruction]");
+    if (progressBar) progressBar.style.width = progress;
+    if (percent) percent.textContent = progress;
+    if (remainingText) remainingText.textContent = `第 ${boss.phase} 阶段 · ${phaseName} · ${boss.active ? formatDuration(remaining) : "潜伏中"}`;
+    if (instructionText) instructionText.textContent = instruction;
+    const weakness = dom.bossHud.querySelector("[data-boss-weakness]");
+    const armor = dom.bossHud.querySelector("[data-boss-armor]");
+    const finisher = dom.bossHud.querySelector("[data-boss-finisher]");
+    const perfect = dom.bossHud.querySelector("[data-boss-perfect]");
+    if (weakness) weakness.textContent = boss.phase === 1 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : boss.phase > 1 ? "完成" : "待开始";
+    if (armor) armor.textContent = boss.phase === 2 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : boss.phase > 2 ? "完成" : "待开始";
+    if (finisher) finisher.textContent = boss.phase === 3 ? `${Math.round(phaseProgress)} / ${phaseGoal}` : "待开始";
+    if (perfect) perfect.textContent = Number(boss.perfectFinishers || 0).toFixed(2);
     emitTide("tide:boss", { boss: { ...boss, phaseGoal, remaining, phaseName } });
   }
-
   function getUltimateCount() {
     return ["sky_net", "ocean_fleet", "school_beacon"].filter((id) => getLevel(id) >= 1).length;
   }
@@ -2206,6 +2274,27 @@
     return Number(gearSkillBuffs[key] ?? fallback) || 0;
   }
 
+  function isInteractionAllowed() {
+    const focused = typeof document.hasFocus === "function" ? document.hasFocus() : true;
+    return document.visibilityState !== "hidden" && focused && !activeModal && !dom.upgradeDrawer.classList.contains("open");
+  }
+
+  function isLiveAutoAllowed() {
+    return Boolean(state.ui?.autofishEnabled) && isInteractionAllowed();
+  }
+
+  function toggleAutoFish() {
+    if (getAutoRate() <= 0) {
+      showToast("自动捕鱼尚未解锁", "先升级小型拖网船，才能使用前台自动巡航。", "info");
+      return;
+    }
+    state.ui.autofishEnabled = !state.ui.autofishEnabled;
+    autoAccumulator = 0;
+    keyboardCasting = false;
+    showToast(state.ui.autofishEnabled ? "自动捕鱼已开启" : "自动捕鱼已关闭", state.ui.autofishEnabled ? "仅在页面聚焦且没有打开菜单时运行。" : "前台不会继续自动撒网，离线收益不受影响。", state.ui.autofishEnabled ? "success" : "info");
+    updateAllUI();
+    saveGame(true);
+  }
   function getAutoRate() {
     const stats = getAllStatBonuses();
     const base = getLevel("trawler") * 0.15 + stats.autoRate;
@@ -2409,16 +2498,17 @@
   }
 
   function showCatchPop(text, tier = "normal", auto = false) {
-    const pop = document.createElement("div");
-    pop.className = `catch-pop ${tier === "legendary" ? "legendary" : tier === "rare" ? "rare" : ""} ${tier === "empty" ? "empty" : ""}${auto ? " auto" : ""}`;
+    const pop = acquireEffect(dom.catchLayer, "div", "catch-pop");
+    if (tier === "legendary") pop.classList.add("legendary");
+    else if (tier === "rare") pop.classList.add("rare");
+    else if (tier === "empty") pop.classList.add("empty");
+    if (auto) pop.classList.add("auto");
     pop.textContent = text;
     pop.style.setProperty("--left", `${fxBetween(38, 62).toFixed(1)}%`);
     pop.style.setProperty("--top", `${fxBetween(48, 68).toFixed(1)}%`);
     pop.style.setProperty("--rise", `${fxBetween(-74, -54).toFixed(0)}px`);
-    dom.catchLayer.appendChild(pop);
-    window.setTimeout(() => pop.remove(), 1500);
+    window.setTimeout(() => releaseEffect(dom.catchLayer, pop, "div", "catch-pop"), 1500);
   }
-
   function showCastAnimation(fullScreen = false) {
     const rect = dom.seaPanel.getBoundingClientRect();
     if (pointerOrigin && rect.width && rect.height) {
@@ -3035,7 +3125,7 @@
     const capacity = getCapacity();
     const hold = getHoldCount();
     window.TideGameState = { zone: state.currentZone, gold: state.gold, hold, capacity, speciesCount: species.length, nodeCount: allNodes.length, zoneCount: zones.length, equipmentSlots: Object.keys(EQUIPMENT_SLOTS).length, captainScore: getCaptainScore(), ...getLeaderboardSnapshot() };
-    const densityTarget = window.innerWidth <= 760 ? 36 : 64;
+    const densityTarget = window.innerWidth <= 1000 ? 28 : 36;
     if (densityTarget !== lastFishDensityTarget) { lastFishDensityTarget = densityTarget; emitTide("tide:fish-density", { count: densityTarget }); }
     const income = estimatedGoldPerSecond();
     const zone = currentZone();
@@ -3051,7 +3141,8 @@
     if (holdMoved) animateStatValue(dom.holdText, hold > lastRenderedHold ? "increase" : "decrease");
     lastRenderedGold = state.gold;
     lastRenderedHold = hold;
-    dom.incomeText.textContent = getAutoRate() > 0 ? `${formatNumber(income)} / 秒` : "需拖网船";
+    const autoRate = getAutoRate();
+    dom.incomeText.textContent = autoRate > 0 ? (state.ui.autofishEnabled ? `${formatNumber(income)} / 秒` : "自动待机") : "需拖网船";
     dom.zoneName.textContent = zone.name;
     const expedition = state.expedition?.active;
     const expeditionRoute = expedition ? getExpeditionRoute(expedition.routeId) : null;
@@ -3068,7 +3159,13 @@
     dom.emptyRateText.textContent = `${Math.round(getEmptyChance() * 100)}%`;
     dom.rareRateText.textContent = `+${Math.round(getRareChance() * 100)}%`;
     dom.doubleRateText.textContent = `${Math.round(getDoubleChance() * 100)}%`;
-    dom.autoRateText.textContent = getAutoRate() > 0 ? `${getAutoRate().toFixed(2)} 次/秒` : "未解锁";
+    dom.autoRateText.textContent = autoRate > 0 ? `${autoRate.toFixed(2)} 次/秒` : "未解锁";
+    if (dom.autoFishToggle && dom.autoFishToggleText) {
+      dom.autoFishToggle.disabled = autoRate <= 0;
+      dom.autoFishToggle.classList.toggle("active", Boolean(state.ui.autofishEnabled && autoRate > 0));
+      dom.autoFishToggle.setAttribute("aria-pressed", String(Boolean(state.ui.autofishEnabled && autoRate > 0)));
+      dom.autoFishToggleText.textContent = autoRate <= 0 ? "未解锁" : state.ui.autofishEnabled ? "运行中" : "关闭";
+    }
     dom.catchMultiplierText.textContent = `×${multiplier.toFixed(2)}`;
     dom.saleMultiplierText.textContent = `×${getSaleMultiplier(false).toFixed(2)}`;
     dom.speciesText.textContent = `${getDiscoveredCount()} / ${species.length}`;
@@ -3220,7 +3317,7 @@
 
   function updateDynamicUI(force = false) {
     const now = performance.now();
-    if (!force && now - lastDynamicRender < 80) return;
+    if (!force && now - lastDynamicRender < 100) return;
     lastDynamicRender = now;
     updateHUD();
     updateControlButtons();
@@ -3444,7 +3541,7 @@
       subtitle = "第一次进入潮汐渔场，按这 6 步理解核心循环。指南可随时点击底部「玩法指南」重新打开。";
       body = `<div class="guide-hero"><span>⚓</span><div><small>舰长第一次出航</small><h3>先撒网，再把渔获变成永久成长</h3><p>金币用于解锁海域和升级天赋；图鉴、装备、科研、首领奖杯和航线等级会在长期保留。</p></div></div>
         <div class="guide-steps">
-          <article class="guide-step"><span>01</span><div><small>基础操作</small><h3>点击海面撒网</h3><p>点击海面任意位置、底部「撒网」或按空格即可捕鱼。鱼舱装满后先出售，否则新渔获会停止进入鱼舱。</p><ul><li>金色、青色或紫色脉冲圈是声呐热点。</li><li>把网落在热点内会获得额外数量或稀有率。</li><li>空格可连续撒网，手机点海面即可。</li></ul></div></article>
+          <article class="guide-step"><span>01</span><div><small>基础操作</small><h3>点击海面撒网</h3><p>点击海面任意位置、底部「撒网」或按空格即可捕鱼。鱼舱装满后先出售，否则新渔获会停止进入鱼舱。</p><ul><li>金色、青色或紫色脉冲圈是声呐热点。</li><li>把网落在热点内会获得额外数量或稀有率。</li><li>空格可连续撒网，手机点海面即可。</li><li>自动捕鱼默认关闭；点击「自动」或按 V 才会在前台运行。</li></ul></div></article>
           <article class="guide-step"><span>02</span><div><small>成长循环</small><h3>出售 → 升级 → 解锁海域</h3><p>左侧「母港交易」出售渔获，底部「深潜协议」升级永久天赋。金币足够后点击顶部海域标签解锁新海域。</p><ul><li>普通鱼是稳定收入，稀有鱼和传说鱼是主要爆发。</li><li>海域越深，鱼价和稀有率越高，但空网率也会变化。</li><li>不要只堆捕捞，自动化、售价和首领天赋同样重要。</li><li>点击顶部「生态扫描」可以查看当前概率修正的来源。</li></ul></div></article>
           <article class="guide-step"><span>03</span><div><small>长期航线</small><h3>深渊航线与节点选择</h3><p>底部「深渊航线」可部署 10–20 分钟航程。成功撒网、命中热点和捕获高稀有鱼都会推进航程。</p><ul><li>抵达节点后会暂停推进，选择金币、合金、结晶、装备保底或首领增益。</li><li>航程等级永久提高全收益、首领奖励和热点持续时间。</li><li>自动撒网只能获得约 45% 的航程推进。</li><li>船员编制提供全局被动，离线时也会按时间推进当前航线。</li></ul></div></article>
           <article class="guide-step"><span>04</span><div><small>首领战</small><h3>三阶段破坏巨兽</h3><p>累计捕获当前海域鱼类会召唤首领。首领分为声呐核心、外层护甲和虚空心脏三个阶段。</p><ul><li>第一阶段：把网落在发光弱点，破坏声呐核心。</li><li>第二阶段：命中热点或捕获高稀有鱼，破坏外层护甲。</li><li>第三阶段：红色窗口出现时立即收网；精准命中越完美，传说装备概率越高。</li></ul></div></article>
@@ -3683,18 +3780,21 @@
 
   function gameTick() {
     const now = Date.now();
-    const delta = clamp((now - lastTick) / 1000, 0, 5);
+    const delta = clamp((now - lastTick) / 1000, 0, 1.5);
     lastTick = now;
+    const interactionAllowed = isInteractionAllowed();
+    const liveAllowed = interactionAllowed && Boolean(state.ui?.autofishEnabled);
 
-    if (keyboardCasting && !activeModal && !dom.upgradeDrawer.classList.contains("open")) {
+    if (!interactionAllowed) keyboardCasting = false;
+    if (keyboardCasting && interactionAllowed) {
       pointerOrigin = null;
       performCast("manual");
     }
     const rate = getAutoRate();
-    if (rate > 0) {
-      autoAccumulator += rate * delta;
+    if (rate > 0 && liveAllowed) {
+      autoAccumulator = Math.min(4, autoAccumulator + rate * delta);
       let guard = 0;
-      while (autoAccumulator >= 1 && guard < 100) {
+      while (autoAccumulator >= 1 && guard < 4) {
         autoAccumulator -= 1;
         performCast("auto");
         guard += 1;
@@ -3749,6 +3849,7 @@
     if (key === "q") { openModal("contracts"); return true; }
     if (key === "x") { openModal("expedition"); return true; }
     if (key === "k") { openModal("guide"); return true; }
+    if (key === "v") { toggleAutoFish(); return true; }
     if (key === "b") { openModal("boss"); return true; }
     if (key === "l") { openLeaderboard(); return true; }
     if (key === "p") { openModal("profile"); return true; }
@@ -3777,6 +3878,7 @@
       pointerOrigin = { x: rect.left + rect.width / 2, y: rect.top + rect.height * .64 };
     });
     dom.castButton.addEventListener("click", () => performCast("manual"));
+    dom.autoFishToggle?.addEventListener("click", toggleAutoFish);
     dom.sellButton.addEventListener("click", () => sellAll(false));
     dom.processButton.addEventListener("click", processFish);
 
@@ -3851,7 +3953,7 @@
     });
     dom.upgradeTree.addEventListener("scroll", scheduleTreeLineDraw, { passive: true });
     window.addEventListener("resize", scheduleTreeLineDraw);
-    window.addEventListener("tide:3d-ready", () => emitTide("tide:fish-density", { count: window.innerWidth <= 760 ? 36 : 64 }));
+    window.addEventListener("tide:3d-ready", () => { window.Tide3D?.setPerformanceProfile?.(state.ui.performanceProfile || "auto"); emitTide("tide:fish-density", { count: window.innerWidth <= 760 ? 28 : 36 }); });
     document.addEventListener("pointermove", (event) => {
       const glass = event.target.closest?.(".rail-card,.topbar,.bottom-dock,.upgrade-drawer,.modal-shell,.keyboard-hint");
       if (!glass) return;
@@ -3993,6 +4095,7 @@
       if (event.code === "Space" || event.key === " ") keyboardCasting = false;
     });
     window.addEventListener("blur", () => { keyboardCasting = false; });
+    window.addEventListener("resize", () => { cachedHoldTarget = null; }, { passive: true });
     document.addEventListener("visibilitychange", () => { if (document.hidden) keyboardCasting = false; });
   }
 
@@ -4265,34 +4368,39 @@
     count = Math.min(count, maxDrops);
     trimFx(dom.splashField, ".splash-drop", maxDrops + 4);
     for (let i = 0; i < count; i += 1) {
-      const drop = document.createElement("i");
-      drop.className = `splash-drop${empty ? " empty-drop" : ""}`;
+      const drop = acquireEffect(dom.splashField, "i", "splash-drop");
+      if (empty) drop.classList.add("empty-drop");
       drop.style.setProperty("--drop-x", `${fxBetween(-160, 160).toFixed(1)}px`);
       drop.style.setProperty("--drop-y", `${fxBetween(-145, -32).toFixed(1)}px`);
       drop.style.setProperty("--drop-delay", `${fxBetween(0, 150).toFixed(0)}ms`);
       drop.style.setProperty("--drop-size", `${fxBetween(2, 7).toFixed(1)}px`);
-      dom.splashField.appendChild(drop);
-      window.setTimeout(() => drop.remove(), 1300);
+      window.setTimeout(() => releaseEffect(dom.splashField, drop, "i", "splash-drop"), 1300);
     }
   }
-
+  function getCachedHoldTarget() {
+    if (cachedHoldTarget) return cachedHoldTarget;
+    const targetRect = dom.holdStat.getBoundingClientRect ? dom.holdStat.getBoundingClientRect() : null;
+    cachedHoldTarget = targetRect && targetRect.width ? { x: targetRect.left + targetRect.width / 2, y: targetRect.top + targetRect.height / 2 } : { x: window.innerWidth - 120, y: 42 };
+    return cachedHoldTarget;
+  }
   function flyFishToHold(count, tier = "normal", caughtSpecies = []) {
-    trimFx(dom.effectRoot, ".fish-spark", 64);
+    trimFx(dom.effectRoot, ".fish-spark", 8);
     const source = pointerOrigin || (() => {
       const rect = dom.seaPanel.getBoundingClientRect();
       return { x: rect.left + rect.width / 2, y: rect.top + rect.height * 0.56 };
     })();
-    const targetRect = dom.holdStat.getBoundingClientRect ? dom.holdStat.getBoundingClientRect() : null;
-    const target = targetRect && targetRect.width ? { x: targetRect.left + targetRect.width / 2, y: targetRect.top + targetRect.height / 2 } : { x: window.innerWidth - 120, y: 42 };
+    const target = getCachedHoldTarget();
     if (count <= 0) return;
     const total = clamp(Math.ceil(count * 0.28), 1, 4);
     for (let i = 0; i < total; i += 1) {
-      const spark = document.createElement("i");
+      const spark = acquireEffect(dom.effectRoot, "i", "fish-spark");
       const dx = target.x - source.x;
       const dy = target.y - source.y;
       const duration = fxBetween(680, 980);
-      const sourceFish = caughtSpecies[i % caughtSpecies.length] || species[0];
-      spark.className = `fish-spark has-image${tier === "rare" ? " rare" : ""}${tier === "legendary" ? " legendary" : ""}`;
+      const sourceFish = caughtSpecies.length ? (caughtSpecies[i % caughtSpecies.length] || species[0]) : species[0];
+      spark.classList.add("has-image");
+      if (tier === "rare") spark.classList.add("rare");
+      if (tier === "legendary") spark.classList.add("legendary");
       spark.style.setProperty("--spark-image", `url("${sourceFish.image}")`);
       spark.style.left = `${source.x + fxBetween(-65, 65)}px`;
       spark.style.top = `${source.y + fxBetween(-50, 45)}px`;
@@ -4306,17 +4414,14 @@
       spark.style.setProperty("--flight-end-y", `${flightY * 0.78 - 26}px`);
       spark.style.setProperty("--flight-duration", `${duration.toFixed(0)}ms`);
       spark.style.setProperty("--flight-delay", `${(i * 26).toFixed(0)}ms`);
-      spark.style.willChange = "transform, opacity";
       spark.style.setProperty("--flight-shake", `${fxBetween(-13, 13).toFixed(1)}px`);
-      dom.effectRoot.appendChild(spark);
       window.setTimeout(() => {
-        spark.remove();
+        releaseEffect(dom.effectRoot, spark, "i", "fish-spark");
         dom.holdStat.classList.add("hold-receive");
         window.setTimeout(() => dom.holdStat.classList.remove("hold-receive"), 180);
-      }, duration + i * 34);
+      }, duration + i * 26);
     }
   }
-
   function animateStatValue(element, direction = "increase") {
     element.classList.remove("value-increase", "value-decrease");
     void element.offsetWidth;

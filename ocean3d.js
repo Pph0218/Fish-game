@@ -101,6 +101,9 @@ let paused = false;
 let currentZone = window.TideGameState && window.TideGameState.zone || "shallow";
 let currentPalette = ZONE_PALETTE[currentZone];
 let quality = "high";
+let performanceProfile = "auto";
+let frameTimeSamples = [];
+let lastQualityAdjustment = 0;
 let castState = null;
 let impactPulse = 0;
 let lights;
@@ -366,10 +369,15 @@ function placeFishInLane(fish, lane) {
 }
 
 const hqFishTemplates = new Map();
+const fishModelFailures = new Set();
 
-function freezeFishModel(source, color) {
+function getSpeciesArtConfig(speciesId) {
+  return window.TideFishArt?.configs?.[speciesId] || null;
+}
+
+function freezeFishModel(source, color, artConfig = null) {
   const root = new THREE.Group();
-  const tint = new THREE.Color(color || "#8cecf5");
+  const tint = new THREE.Color(artConfig?.body || color || "#8cecf5");
   source.updateMatrixWorld(true);
   source.traverse((child) => {
     if (!child.isMesh || !child.geometry) return;
@@ -378,8 +386,9 @@ function freezeFishModel(source, color) {
     const sourceMaterials = Array.isArray(child.material) ? child.material : [child.material];
     const materials = sourceMaterials.filter(Boolean).map((material) => {
       const next = material.clone();
-      if (next.color) next.color.lerp(tint, 0.12);
-      if ("roughness" in next) next.roughness = Math.min(0.55, Math.max(0.26, Number(next.roughness) || 0.42));
+      if (next.color) next.color.lerp(tint, 0.2);
+      if (next.emissive && artConfig?.glow) { next.emissive = new THREE.Color(artConfig.glow); next.emissiveIntensity = Math.min(0.12, Number(next.emissiveIntensity) || 0.04); }
+      if (next.roughness !== undefined) next.roughness = Math.min(0.55, Math.max(0.26, Number(next.roughness) || 0.42));
       if ("metalness" in next) next.metalness = Math.min(0.18, Number(next.metalness) || 0);
       next.side = THREE.DoubleSide;
       next.toneMapped = false;
@@ -409,7 +418,8 @@ function createHighQualityFish(speciesId) {
   let template = hqFishTemplates.get(speciesId);
   if (!template) {
     const [modelKey, color] = SPECIES_MODELS[speciesId] || ["dart", "#9de8f4"];
-    template = freezeFishModel(models[entry[0]], color);
+    const artConfig = getSpeciesArtConfig(speciesId);
+    template = freezeFishModel(models[entry[0]], artConfig?.body || color, artConfig);
     template.userData.modelKey = modelKey;
     hqFishTemplates.set(speciesId, template);
   }
@@ -432,7 +442,11 @@ function createHighQualityFish(speciesId) {
 }
 
 function shouldUseHighQualityFishModels() {
-  return !window.TIDE_FORCE_SPRITES && quality !== "low" && window.innerWidth >= 760 && !navigator.connection?.saveData;
+  return !window.TIDE_FORCE_SPRITES && quality === "high" && window.innerWidth >= 1000 && !navigator.connection?.saveData;
+}
+
+function shouldUseLightweight3DFishModels() {
+  return !window.TIDE_FORCE_SPRITES;
 }
 
 async function ensureZoneFishModels(zoneId, onProgress = null) {
@@ -442,8 +456,11 @@ async function ensureZoneFishModels(zoneId, onProgress = null) {
   for (const key of keys) {
     try {
       if (!models[key]) await ensureModelAsset(key);
+      fishModelFailures.delete(key);
       onProgress?.(key);
     } catch (error) {
+      fishModelFailures.add(key);
+      onProgress?.(key);
       console.warn("High-quality fish preload failed", key, error);
     }
     await new Promise((resolve) => window.setTimeout(resolve, 45));
@@ -460,7 +477,8 @@ function scheduleFishRebuild() {
 }
 function createFallbackFish3D(speciesId) {
   const [modelKey, color] = SPECIES_MODELS[speciesId] || ["dart", "#9de8f4"];
-  const root = createProceduralFish(modelKey, color);
+  const artConfig = getSpeciesArtConfig(speciesId);
+  const root = createProceduralFish(modelKey, artConfig?.body || color);
   const group = new THREE.Group();
   group.add(root);
   group.userData.speciesId = speciesId;
@@ -529,17 +547,25 @@ function placeFishSchool() {
   school.forEach((fish) => scene.remove(fish));
   school = [];
   const zoneIds = ZONE_FISH_IDS[currentZone] || ZONE_FISH_IDS.shallow;
-  const use3D = shouldUseHighQualityFishModels();
-  const count = use3D ? Math.min(fishDensityTarget || 36, quality === "high" ? 36 : 24) : (fishDensityTarget || (quality === "high" ? 64 : 36));
+  const highQuality = shouldUseHighQualityFishModels();
+  const lightweight3D = shouldUseLightweight3DFishModels();
+  const availableIds = highQuality ? zoneIds.filter((id) => { const key = HQ_SPECIES_MODELS[id]?.[0]; return key && !fishModelFailures.has(key); }) : zoneIds;
+  if (!availableIds.length) return;
+  const count = highQuality ? Math.min(fishDensityTarget || 28, quality === "high" ? 28 : 20) : lightweight3D ? Math.min(fishDensityTarget || 28, quality === "high" ? 28 : 24) : (fishDensityTarget || 36);
+  const nearCount = highQuality ? Math.min(10, Math.ceil(count * 0.38)) : 0;
   const laneCount = 8;
   const perLane = Math.ceil(count / laneCount);
   for (let i = 0; i < count; i += 1) {
-    const id = zoneIds[i % zoneIds.length];
-    const fish = use3D ? (createHighQualityFish(id) || createFallbackFish3D(id)) : createSpriteFish(id);
+    const id = availableIds[i % availableIds.length];
+    const modelReady = highQuality && Boolean(models[HQ_SPECIES_MODELS[id]?.[0]]);
+    const useNearModel = modelReady && i < nearCount;
+    const fish = useNearModel ? createHighQualityFish(id) : lightweight3D ? createFallbackFish3D(id) : createSpriteFish(id);
+    if (!fish) continue;
     const data = fish.userData;
     const lane = i % laneCount;
     const slot = Math.floor(i / laneCount);
     data.lane = lane;
+    data.lod = useNearModel ? "near" : i < Math.ceil(count * 0.75) ? "mid" : "far";
     data.depthTie = (i % 64) * 0.0025;
     data.direction = rand() > 0.5 ? 1 : -1;
     data.phase = rand() * Math.PI * 2;
@@ -555,9 +581,10 @@ function placeFishSchool() {
     scene.add(fish);
   }
 }
-
 function createWater() {
-  const geometry = new THREE.PlaneGeometry(120, 80, 72, 28);
+  const waterSegmentsX = quality === "high" ? 72 : quality === "medium" ? 48 : 28;
+  const waterSegmentsY = quality === "high" ? 28 : quality === "medium" ? 18 : 12;
+  const geometry = new THREE.PlaneGeometry(120, 80, waterSegmentsX, waterSegmentsY);
   const material = new THREE.ShaderMaterial({
     transparent: true,
     side: THREE.DoubleSide,
@@ -1370,17 +1397,18 @@ function updateFish(now, delta) {
       fish.rotation.z = Math.sin(time * (1.5 + data.speed) + data.phase) * (data.route === "vertical" ? .11 : .055);
       fish.rotation.y = data.direction > 0 ? 0 : Math.PI;
     }
-    if (data.sprite && window.TideSpriteFish) window.TideSpriteFish.update(data.sprite, time, { speed: data.speed, phase: data.phase, direction: data.direction, lod: data.lod, mode: data.mode });
+    const farDetail = data.lod === "far";
+    if (data.sprite && window.TideSpriteFish && (!farDetail || (time % 0.18) < 0.06)) window.TideSpriteFish.update(data.sprite, time, { speed: data.speed, phase: data.phase, direction: data.direction, lod: data.lod, mode: data.mode });
     const root = data.model;
     if (root?.userData?.modelKey) root.rotation.z = Math.sin(time * 2.4 + data.phase) * 0.035;
     const fins = root && root.userData ? root.userData.extraFins : null;
-    if (Array.isArray(fins)) {
+    if (Array.isArray(fins) && !farDetail) {
       if (fins[0]) fins[0].rotation.x = Math.sin(time * 7 + data.phase) * 0.16;
       if (fins[1]) fins[1].rotation.y = Math.sin(time * 6 + data.phase) * 0.32;
       if (fins[2]) fins[2].rotation.z = -0.42 + Math.sin(time * 8 + data.phase) * 0.22;
       if (fins[3]) fins[3].rotation.z = 0.42 - Math.sin(time * 8 + data.phase) * 0.22;
     }
-    if (root && root.userData.proceduralType) {
+    if (root && root.userData.proceduralType && !farDetail) {
       const type = root.userData.proceduralType;
       if (type === "eel" && root.userData.segments) {
         root.userData.segments.forEach((segment, index) => { segment.position.y = Math.sin(time * 5 + data.phase - index * .42) * (.08 + index * .012); });
@@ -1508,17 +1536,51 @@ function applyZone(zoneId) {
   ensureZoneFishModels(currentZone, () => { if (currentZone === zoneId) scheduleFishRebuild(); });
 }
 
+function resolvePerformanceLevel() {
+  if (performanceProfile === "high" || performanceProfile === "balanced" || performanceProfile === "low") return performanceProfile;
+  const mobile = window.innerWidth <= 760;
+  const cores = Number(navigator.hardwareConcurrency) || 8;
+  const memory = Number(navigator.deviceMemory) || 8;
+  if (mobile || cores <= 4 || memory <= 4) return "low";
+  if (window.innerWidth >= 1200 && cores >= 8 && memory >= 8) return "high";
+  return "balanced";
+}
+
 function setQuality(level) {
-  quality = level === "low" || level === "medium" ? level : "high";
+  quality = level === "low" ? "low" : level === "medium" || level === "balanced" ? "medium" : "high";
   setFishLodQuality(quality);
   resize();
   if (particles) particles.visible = quality !== "low";
   if (environmentGroup) environmentGroup.visible = quality !== "low";
   environmentBeams.forEach((beam) => { beam.visible = quality === "high"; });
   distantShadows.forEach((shadow) => { shadow.visible = quality === "high"; });
+  if (ready) scheduleFishRebuild();
 }
 
-function setEnvironmentQuality(level) { setQuality(level); }
+function setPerformanceProfile(level) {
+  performanceProfile = ["auto", "high", "balanced", "low"].includes(level) ? level : "auto";
+  frameTimeSamples = [];
+  setQuality(resolvePerformanceLevel());
+}
+
+function recordFrameTime(delta, now) {
+  if (!ready || performanceProfile !== "auto") return;
+  const ms = Math.min(50, Math.max(1, Number(delta) * 1000));
+  frameTimeSamples.push(ms);
+  if (frameTimeSamples.length < 120) return;
+  const average = frameTimeSamples.reduce((sum, value) => sum + value, 0) / frameTimeSamples.length;
+  frameTimeSamples = [];
+  if (now - lastQualityAdjustment < 5000) return;
+  if (average > 22 && quality === "high") { lastQualityAdjustment = now; setQuality("balanced"); }
+  else if (average > 24 && quality === "medium") { lastQualityAdjustment = now; setQuality("low"); }
+  else if (average < 15 && quality === "low") { lastQualityAdjustment = now; setQuality("balanced"); }
+}
+
+function getPerformanceStats() {
+  return { profile: performanceProfile, effectiveQuality: quality, averageFrameMs: frameTimeSamples.length ? frameTimeSamples.reduce((sum, value) => sum + value, 0) / frameTimeSamples.length : 0, fishCount: school.length };
+}
+
+function setEnvironmentQuality(level) { setPerformanceProfile(level); }
 function setCameraParallax(x, y) { cameraParallaxTarget.set(clampNumber(x, -1, 1) * 2, clampNumber(y, -1, 1) * 1.5); }
 
 
@@ -1570,7 +1632,7 @@ async function init() {
     return;
   }
   try {
-    quality = window.innerWidth < 720 || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ? "medium" : "high";
+    setPerformanceProfile(performanceProfile);
     setFishLodQuality(quality);
     renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: "high-performance" });
     if (renderer.outputColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace; else renderer.outputEncoding = THREE.sRGBEncoding;
@@ -1602,7 +1664,7 @@ async function init() {
     scheduleSpritePreload();
     const renderLoop = (now) => {
       try {
-        if (renderer) updateScene(now, clock.getDelta());
+        if (renderer) { const delta = clock.getDelta(); updateScene(now, delta); recordFrameTime(delta, now); }
       } catch (error) {
         const message = (error && error.stack) ? error.stack : ((error && error.name ? error.name : "Error") + ": " + (error && error.message ? error.message : String(error)));
         if (window.__tideRenderError !== message) {
@@ -1635,6 +1697,8 @@ const api = {
   setPaused(value) { paused = Boolean(value); },
   setQuality,
   setEnvironmentQuality,
+  setPerformanceProfile,
+  getPerformanceStats,
   setCameraParallax,
   setSonarHotspots,
   playSonarPing,
@@ -1658,7 +1722,7 @@ window.Tide3D = {
   get modelCount() { return new Set(Object.values(SPECIES_MODELS).map(([key]) => key)).size; },
   get fishCount() { return school.length; },
   get highQualityModelCount() { return hqFishTemplates.size; },
-  get fishVisualMode() { return !shouldUseHighQualityFishModels() ? "sprite" : (hqFishTemplates.size ? "downloaded-3d" : "procedural-3d"); },
+  get fishVisualMode() { return shouldUseHighQualityFishModels() ? (hqFishTemplates.size ? "downloaded-3d" : "lightweight-3d") : shouldUseLightweight3DFishModels() ? "lightweight-3d" : "sprite"; },
   get caughtFishCount() { return school.filter((fish) => fish.userData.isCaught).length; },
   get hiddenFishCount() { return school.filter((fish) => fish.userData.hiddenUntil).length; },
   get debugColors() { const out=[]; school.slice(0,4).forEach((fish)=>{fish.traverse((child)=>{if(child.isMesh && child.material && child.material.color && !out.includes(child.material.color.getHexString()))out.push(child.material.color.getHexString());});}); return out; },
@@ -1671,6 +1735,8 @@ window.Tide3D = {
 
   setQuality(value) { return apiCall("setQuality", [value]); },
   setEnvironmentQuality(value) { return apiCall("setEnvironmentQuality", [value]); },
+  setPerformanceProfile(level) { return apiCall("setPerformanceProfile", [level]); },
+  getPerformanceStats() { return ready ? getPerformanceStats() : { profile: performanceProfile, effectiveQuality: quality, averageFrameMs: 0, fishCount: 0 }; },
   setCameraParallax(x, y) { return apiCall("setCameraParallax", [x, y]); },
   setSonarHotspots(hotspots) { return apiCall("setSonarHotspots", [hotspots]); },
   playSonarPing(type, position) { return apiCall("playSonarPing", [type, position]); },
