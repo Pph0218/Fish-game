@@ -5579,3 +5579,81 @@ button:not(:disabled):hover {
     grid-template-columns: 1fr;
   }
 }
+
+
+.crew-roster {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.crew-member {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(129, 218, 228, .15);
+  border-radius: 14px;
+  color: #e8ffff;
+  text-align: left;
+  background: rgba(4, 17, 33, .42);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.crew-member:hover,
+.crew-member.active {
+  transform: translateY(-1px);
+  border-color: rgba(126, 238, 238, .48);
+  background: linear-gradient(145deg, rgba(42, 130, 151, .19), rgba(4, 17, 33, .44));
+}
+
+.crew-member.locked {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.crew-member > span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 11px;
+  color: #98f5ef;
+  background: rgba(101, 225, 224, .12);
+  font-size: 18px;
+}
+
+.crew-member > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.crew-member strong,
+.crew-member small {
+  display: block;
+}
+
+.crew-member strong {
+  font-size: 11px;
+}
+
+.crew-member small {
+  margin-top: 3px;
+  color: rgba(198, 231, 239, .66);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.crew-member > b {
+  color: #9ff4ef;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .crew-roster {
+    grid-template-columns: 1fr;
+  }
+}

@@ -676,6 +676,12 @@
     { zone: "city", slot: "armor", archetype: "observer_armor", cost: { sonarShard: 3, armorPlate: 3, voidHeart: 1, alloy: 34 }, description: "强化装备掉落与首领阶段进度。" },
     { zone: "void", slot: "core", archetype: "void_orbit_core", cost: { sonarShard: 0, armorPlate: 4, voidHeart: 2, alloy: 40 }, description: "终点核心，同时提高全收益与技能急速。" }
   ];
+  const CREW_DEFS = [
+    { id: "runi", name: "舵手·鲁恩", icon: "⚓", description: "稳定落点：手动捕获量 +4%。", bonus: { catchPct: 0.04 }, unlock: () => true },
+    { id: "mia", name: "声呐员·弥娅", icon: "◉", description: "解析回声：稀有率 +2%。", bonus: { rareChance: 0.02 }, unlock: () => getTotalBossDefeated() >= 1 },
+    { id: "odin", name: "舰长·奥丁", icon: "⌘", description: "调度航线：全收益 +4%，航线推进 +8%。", bonus: { allYieldPct: 0.04, expeditionProgressPct: 0.08 }, unlock: () => Number(state.expedition?.completed) >= 2 },
+    { id: "zero", name: "工程师·零", icon: "⬢", description: "拆解巨兽：首领阶段进度 +8%，装备保底 +2%。", bonus: { bossPowerPct: 0.08, gearDropPct: 0.02 }, unlock: () => getTotalBossDefeated() >= 3 }
+  ];
   const GEAR_SKILLS = {
     sky_pulse: { key: "R", name: "天罗脉冲", icon: "✶", cooldown: 45, duration: 8, color: "#74efff", description: "8 秒内捕获量 +80%，网面展开范围扩大。" },
     overdrive: { key: "T", name: "超载航行", icon: "⚡", cooldown: 50, duration: 10, color: "#ffd36a", description: "10 秒内自动撒网速度 ×2.5。" },
@@ -829,6 +835,7 @@
       },
       sonar: { hotspots: [], nextSpawnAt: Date.now() + 12000, history: [] },
       expedition: { active: null, completed: 0, bestScore: 0, crewMode: "balanced", masteryXp: 0, masteryLevel: 0, log: [] },
+      crew: { assigned: ["runi"], lastOfflineGain: 0 },
       ecology: Object.fromEntries(zones.map((zone) => [zone.id, { preyDensity: 1, predatorPressure: 0.05, schoolMorale: 0.92, predatorCount: 0, lastUpdatedAt: Date.now() }])),
       codexMastery: {},
       contracts: { date: "", tasks: [], progress: {}, claimed: {}, streak: 0 },
@@ -1037,15 +1044,53 @@
     return EXPEDITION_CREW_MODES[mode] || EXPEDITION_CREW_MODES.balanced;
   }
 
+  function getCrewSlotCount() {
+    return 2 + ((Number(state.ascension?.count) || 0) >= 1 ? 1 : 0);
+  }
+
+  function getCrewUnlocked(crew) {
+    try { return Boolean(crew?.unlock?.()); } catch { return false; }
+  }
+
+  function getCrewBonuses() {
+    const bonuses = { catchPct: 0, rareChance: 0, allYieldPct: 0, bossPowerPct: 0, gearDropPct: 0, expeditionProgressPct: 0 };
+    (state.crew?.assigned || []).forEach((id) => {
+      const crew = CREW_DEFS.find((item) => item.id === id);
+      if (!crew || !getCrewUnlocked(crew)) return;
+      Object.entries(crew.bonus || {}).forEach(([key, value]) => { bonuses[key] = Number(bonuses[key] || 0) + Number(value || 0); });
+    });
+    return bonuses;
+  }
+
+  function toggleCrew(id) {
+    const crew = CREW_DEFS.find((item) => item.id === id);
+    if (!crew) return;
+    if (!getCrewUnlocked(crew)) { showToast("船员尚未加入", "继续击败首领或完成深渊航线后即可招募。", "error"); return; }
+    const assigned = state.crew?.assigned || [];
+    if (assigned.includes(id)) state.crew.assigned = assigned.filter((item) => item !== id);
+    else if (assigned.length >= getCrewSlotCount()) showToast("船员席已满", "提升深渊跃迁次数可以解锁第三个船员席。", "error");
+    else state.crew.assigned = [...assigned, id].slice(0, getCrewSlotCount());
+    renderModal();
+    updateAllUI();
+    saveGame(true);
+  }
+
+  function renderCrewSection() {
+    const assigned = state.crew?.assigned || [];
+    const slots = getCrewSlotCount();
+    return `<h3 class="modal-subheading">船员编制 <small>${assigned.length} / ${slots} 席位</small></h3><div class="crew-roster">${CREW_DEFS.map((crew) => { const unlocked = getCrewUnlocked(crew); const active = assigned.includes(crew.id); return `<button class="crew-member ${active ? "active" : ""} ${unlocked ? "" : "locked"}" type="button" data-crew-assign="${crew.id}" ${unlocked ? "" : "disabled"}><span>${crew.icon}</span><div><strong>${crew.name}</strong><small>${unlocked ? crew.description : "尚未解锁"}</small></div><b>${active ? "已上船" : unlocked ? "编入" : "未解锁"}</b></button>`; }).join("")}</div>`;
+  }
   function getExpeditionBonuses() {
     const active = state.expedition?.active;
     const crew = active ? getExpeditionCrew() : {};
+    const assignedCrew = getCrewBonuses();
     const bonuses = active?.bonuses || {};
     return {
       catchPct: Number(crew.catchPct || 0) + Number(bonuses.catchPct || 0),
       rareChance: Number(crew.rareChance || 0) + Number(bonuses.rareChance || 0),
       legendChance: Number(crew.legendChance || 0) + Number(bonuses.legendChance || 0),
-      bossProgressPct: Number(crew.bossProgressPct || 0) + Number(bonuses.bossProgressPct || 0)
+      bossProgressPct: Number(crew.bossProgressPct || 0) + Number(bonuses.bossProgressPct || 0) + Number(assignedCrew.bossPowerPct || 0) / 2,
+      expeditionProgressPct: Number(assignedCrew.expeditionProgressPct || 0)
     };
   }
 
@@ -1148,6 +1193,22 @@
     return false;
   }
 
+  function applyOfflineExpedition(elapsedSeconds) {
+    const active = state.expedition?.active;
+    if (!active || active.pendingNode || active.expired) { if (state.crew) state.crew.lastOfflineGain = 0; return 0; }
+    const route = getExpeditionRoute(active.routeId);
+    const routeEnded = Date.now() >= (Number(active.endsAt) || 0);
+    const effectiveSeconds = Math.min(Math.max(0, Number(elapsedSeconds) || 0), Math.max(0, ((Number(active.endsAt) || Date.now()) - (Number(active.startedAt) || Date.now())) / 1000));
+    const crewBoost = 1 + Number(getCrewBonuses().expeditionProgressPct || 0);
+    const nextThreshold = Number(active.thresholds?.[Number(active.nodeIndex) || 0] || active.requiredCasts || 1);
+    const maxGain = Math.max(0, nextThreshold - (Number(active.progress) || 0));
+    const gain = Math.min(maxGain, (effectiveSeconds / 30) * crewBoost);
+    if (gain > 0) active.progress = Math.min(Number(active.requiredCasts) || 0, (Number(active.progress) || 0) + gain);
+    if (routeEnded) active.expired = true;
+    if (gain > 0) queueExpeditionNode();
+    if (state.crew) state.crew.lastOfflineGain = gain;
+    return gain;
+  }
   function startExpedition(routeId) {
     const route = getExpeditionRoute(routeId);
     if (state.expedition?.active) {
@@ -1182,7 +1243,7 @@
   function advanceExpedition(weight = 1, context = {}) {
     const active = state.expedition?.active;
     if (!active || active.expired || active.pendingNode) return { pending: Boolean(active?.pendingNode), completed: false };
-    const gain = clamp(Number(weight) || 0, 0, 3);
+    const gain = clamp((Number(weight) || 0) * (1 + Number(getCrewBonuses().expeditionProgressPct || 0)), 0, 3);
     if (gain <= 0) return { pending: false, completed: false };
     active.progress = Math.min(Number(active.requiredCasts) || 0, (Number(active.progress) || 0) + gain);
     active.stats.casts += context.source === "auto" ? 0.45 : 1;
@@ -2687,6 +2748,8 @@
       });
       state.sonar = { ...base.sonar, ...(saved.sonar || {}), hotspots: Array.isArray((saved.sonar || {}).hotspots) ? saved.sonar.hotspots : [], history: Array.isArray((saved.sonar || {}).history) ? saved.sonar.history : [] };
       const savedExpedition = saved.expedition && typeof saved.expedition === "object" ? saved.expedition : {};
+      state.crew = { ...base.crew, ...(saved.crew || {}), assigned: Array.isArray(saved.crew?.assigned) ? saved.crew.assigned.filter((id) => CREW_DEFS.some((crew) => crew.id === id)).slice(0, 3) : ["runi"] };
+      if (!state.crew.assigned.length) state.crew.assigned = ["runi"];
       state.expedition = {
         ...base.expedition,
         ...savedExpedition,
@@ -2769,6 +2832,7 @@
 
       const lastSaved = Number(saved.lastSaved) || Date.now();
       const elapsed = Math.max(0, (Date.now() - lastSaved) / 1000);
+      applyOfflineExpedition(elapsed);
       if (!state.pendingOffline && elapsed >= OFFLINE_MIN_SECONDS) {
         const capHours = (getLevel("ocean_fleet") > 0 ? 12 : 8) + getAllStatBonuses().offlineHours;
         const cappedSeconds = Math.min(elapsed, capHours * 3600);
@@ -3239,7 +3303,7 @@
           </article>`;
         }).join("");
         const crewCards = Object.entries(EXPEDITION_CREW_MODES).map(([id, mode]) => `<button class="crew-option ${state.expedition.crewMode === id ? "active" : ""}" type="button" data-expedition-crew="${id}"><span>${mode.icon}</span><div><strong>${mode.name}</strong><small>${mode.description}</small></div><b>${state.expedition.crewMode === id ? "已选择" : "选择"}</b></button>`).join("");
-        body = `<div class="expedition-hero"><span>⌁</span><div><small>长期航行协议</small><h3>让每一次撒网都有航线目标</h3><p>路线会持续记录手动落网、热点命中和首领辅助。抵达节点时暂停推进，选择一条明确收益；提前返航按航程结算。</p><div class="expedition-mastery"><div><small>航线等级 ${masteryLevel} / 20</small><strong>全收益 +${(masteryLevel * 0.4).toFixed(1)}% · 首领奖励 +${(masteryLevel * 0.8).toFixed(1)}% · 热点时长 +${(masteryLevel * 1.2).toFixed(1)}%</strong></div><div class="expedition-mastery-track"><i style="width:${Math.round(masteryProgress * 100)}%"></i></div><b>${masteryLevel >= 20 ? "MAX" : `${formatNumber(masteryXp)} / ${formatNumber(masteryCost)}`}</b></div></div></div><h3 class="modal-subheading">船员策略</h3><div class="crew-options">${crewCards}</div><h3 class="modal-subheading">选择航线</h3><div class="expedition-routes">${routeCards}</div>`;
+        body = `<div class="expedition-hero"><span>⌁</span><div><small>长期航行协议</small><h3>让每一次撒网都有航线目标</h3><p>路线会持续记录手动落网、热点命中和首领辅助。抵达节点时暂停推进，选择一条明确收益；提前返航按航程结算。</p><div class="expedition-mastery"><div><small>航线等级 ${masteryLevel} / 20</small><strong>全收益 +${(masteryLevel * 0.4).toFixed(1)}% · 首领奖励 +${(masteryLevel * 0.8).toFixed(1)}% · 热点时长 +${(masteryLevel * 1.2).toFixed(1)}%</strong></div><div class="expedition-mastery-track"><i style="width:${Math.round(masteryProgress * 100)}%"></i></div><b>${masteryLevel >= 20 ? "MAX" : `${formatNumber(masteryXp)} / ${formatNumber(masteryCost)}`}</b></div></div></div>${renderCrewSection()}<h3 class="modal-subheading">船员策略</h3><div class="crew-options">${crewCards}</div><h3 class="modal-subheading">选择航线</h3><div class="expedition-routes">${routeCards}</div>`;
         footer = `<button class="modal-button" type="button" data-modal-close>暂时不出发</button>`;
       } else {
         const route = getExpeditionRoute(active.routeId);
@@ -3256,6 +3320,7 @@
         const logMarkup = log.length ? `<div class="expedition-log">${log.map((entry) => `<div><small>${new Date(entry.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</small><strong>${entry.title}</strong><span>${entry.choice} · ${entry.result}</span></div>`).join("")}</div>` : `<p class="muted">还没有航线记录。每次节点选择都会写入航行日志。</p>`;
         body = `<div class="expedition-active-head"><div class="expedition-route-emblem" style="--route-accent:${route.accent}">${route.icon}</div><div><small>${route.tag} · ${crew.name}</small><h3>${route.name}</h3><p>${route.description}</p></div><b>${remaining}</b></div>
           <div class="expedition-progress-large"><i style="width:${Math.round(progress * 100)}%"></i><span>${Math.round(progress * 100)}%</span></div>
+          ${renderCrewSection()}
           <div class="expedition-metrics"><span><small>推进值</small><strong>${Math.round(active.progress)} / ${active.requiredCasts}</strong></span><span><small>热点命中</small><strong>${Math.round(active.stats.hotspots)}</strong></span><span><small>稀有 / 传说</small><strong>${Math.round(active.stats.rare)} / ${Math.round(active.stats.legendary)}</strong></span><span><small>预计返航</small><strong>${formatNumber(earlyPreview.gold)} 金币</strong></span></div>
           ${pendingMarkup}
           <div class="expedition-bonus-row"><small>当前航线加成</small><span>${bonusEntries.length ? bonusEntries.map(([key, value]) => key === "alloy" || key === "crystals" ? `${key === "alloy" ? "合金" : "结晶"} +${Math.round(value)}` : key === "goldPct" ? `金币 +${Math.round(value * 100)}%` : `${key === "catchPct" ? "捕获" : key === "rareChance" ? "稀有" : key === "legendChance" ? "传说" : "首领"} +${(Number(value) * 100).toFixed(1)}%`).join(" · ") : "尚无节点加成"}</span></div>
@@ -3269,7 +3334,7 @@
         <div class="guide-steps">
           <article class="guide-step"><span>01</span><div><small>基础操作</small><h3>点击海面撒网</h3><p>点击海面任意位置、底部「撒网」或按空格即可捕鱼。鱼舱装满后先出售，否则新渔获会停止进入鱼舱。</p><ul><li>金色、青色或紫色脉冲圈是声呐热点。</li><li>把网落在热点内会获得额外数量或稀有率。</li><li>空格可连续撒网，手机点海面即可。</li></ul></div></article>
           <article class="guide-step"><span>02</span><div><small>成长循环</small><h3>出售 → 升级 → 解锁海域</h3><p>左侧「母港交易」出售渔获，底部「深潜协议」升级永久天赋。金币足够后点击顶部海域标签解锁新海域。</p><ul><li>普通鱼是稳定收入，稀有鱼和传说鱼是主要爆发。</li><li>海域越深，鱼价和稀有率越高，但空网率也会变化。</li><li>不要只堆捕捞，自动化、售价和首领天赋同样重要。</li></ul></div></article>
-          <article class="guide-step"><span>03</span><div><small>长期航线</small><h3>深渊航线与节点选择</h3><p>底部「深渊航线」可部署 10–20 分钟航程。成功撒网、命中热点和捕获高稀有鱼都会推进航程。</p><ul><li>抵达节点后会暂停推进，选择金币、合金、结晶、装备保底或首领增益。</li><li>航程等级永久提高全收益、首领奖励和热点持续时间。</li><li>自动撒网只能获得约 45% 的航程推进。</li></ul></div></article>
+          <article class="guide-step"><span>03</span><div><small>长期航线</small><h3>深渊航线与节点选择</h3><p>底部「深渊航线」可部署 10–20 分钟航程。成功撒网、命中热点和捕获高稀有鱼都会推进航程。</p><ul><li>抵达节点后会暂停推进，选择金币、合金、结晶、装备保底或首领增益。</li><li>航程等级永久提高全收益、首领奖励和热点持续时间。</li><li>自动撒网只能获得约 45% 的航程推进。</li><li>船员编制提供全局被动，离线时也会按时间推进当前航线。</li></ul></div></article>
           <article class="guide-step"><span>04</span><div><small>首领战</small><h3>三阶段破坏巨兽</h3><p>累计捕获当前海域鱼类会召唤首领。首领分为声呐核心、外层护甲和虚空心脏三个阶段。</p><ul><li>第一阶段：把网落在发光弱点，破坏声呐核心。</li><li>第二阶段：命中热点或捕获高稀有鱼，破坏外层护甲。</li><li>第三阶段：红色窗口出现时立即收网；精准命中越完美，传说装备概率越高。</li></ul></div></article>
           <article class="guide-step"><span>05</span><div><small>构筑系统</small><h3>装备、技能与套装</h3><p>底部「舰载装备」管理 8 个槽位、套装、主动技和图鉴。相同装备会转化为强化或合金。</p><ul><li>装备主动技默认自动释放，手动可精确配合首领窗口。</li><li>五套套装在 2 / 4 / 6 / 8 件时逐层增强。</li><li>深渊航线完整返航会提供打捞装备与保底进度。</li><li>首领部位材料可在「巨兽熔铸」制作专属传说装备。</li></ul></div></article>
           <article class="guide-step"><span>06</span><div><small>长期目标</small><h3>图鉴、科研与深渊跃迁</h3><p>第一次捕获鱼种会点亮图鉴并提供永久小加成。科研和协议需要深渊结晶，适合在长期游玩中逐步解锁。</p><ul><li>图鉴星级：100 / 1,000 / 10,000 次累计捕获。</li><li>深渊跃迁会重置金币、鱼舱、普通海域和普通天赋。</li><li>装备、图鉴、成就、科研、协议、首领奖杯和航线等级永久保留。</li></ul></div></article>
@@ -3733,6 +3798,7 @@
       const equipButton = event.target.closest("[data-equip-gear]");
       const upgradeGearButton = event.target.closest("[data-upgrade-gear]");
       const forgeGearButton = event.target.closest("[data-forge-gear]");
+      const crewAssignButton = event.target.closest("[data-crew-assign]");
       const unlockButton = event.target.closest("[data-unlock-zone]");
       const tabButton = event.target.closest("[data-equip-tab]");
       const skillModeButton = event.target.closest("[data-toggle-skill-mode]");
@@ -3780,6 +3846,7 @@
       if (bossArchiveButton) { activeModal = { type: "bossArchive", payload: {} }; renderModal(); }
       if (upgradeGearButton) upgradeEquipment(upgradeGearButton.dataset.upgradeGear);
       if (forgeGearButton) forgeBossEquipment(forgeGearButton.dataset.forgeGear);
+      if (crewAssignButton) toggleCrew(crewAssignButton.dataset.crewAssign);
 
       if (event.target === dom.modalLayer) closeModal();
     });
@@ -3949,6 +4016,11 @@
     if (state.profile && !state.ui.guideSeen) window.setTimeout(() => { if (!activeModal) openModal("guide"); }, 1100);
     checkPublishedVersion();
     registerOfflineApp();
+    if (state.crew?.lastOfflineGain > 0) {
+      const gain = Math.round(state.crew.lastOfflineGain * 10) / 10;
+      state.crew.lastOfflineGain = 0;
+      window.setTimeout(() => showToast("离线航线推进", `船员在离线期间推进了 ${gain} 点航程。`, "success"), 420);
+    }
     if (state.pendingOffline) {
       window.setTimeout(() => openModal("offline"), 320);
     }
