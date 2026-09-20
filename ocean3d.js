@@ -27,6 +27,32 @@ const SPECIES_MODELS = {
   magma_bass: ["pike", "#e2774a"], blacksmoke_eel: ["eel", "#7b6787"], flame_marlin: ["marlin", "#ff8757"], ember_snapper: ["round", "#ff6745"], lava_goblin_shark: ["shark", "#c64d35"], primordial_whalefish: ["whale", "#ffb15c"],
   relic_damselfish: ["round", "#7dc6b8"], titanium_barracuda: ["dart", "#9fb4c9"], blue_steel_pomfret: ["bream", "#769fe5"], watcher_swordfish: ["marlin", "#5fb5e8"], mech_ghost_shark: ["shark", "#7f88b8"], abyss_core: ["squid", "#88ffe8"],
   stardust_sardine: ["slim", "#b7d0ff"], phantom_moon_ray: ["ray", "#b69cff"], void_tuna: ["dart", "#6f7dff"], gravity_oarfish: ["eel", "#c9b8ff"], void_whale: ["whale", "#728cff"], genesis_whale: ["whale", "#e8ddff"]
+};const FISH_MODEL_ROOT = "assets/deepsea/downloads/";
+const FISH_MODEL_FILES = {
+  hq_bluegill: "animated-blue-gill.glb",
+  hq_trout: "animated-trout.glb",
+  hq_sailfish: "sailfish.glb",
+  hq_clownfish: "cartoon-clownfish.glb",
+  hq_tropical: "tropical-alien-fish.glb",
+  hq_manta: "cartoon-manta-ray.glb",
+  hq_angler: "cartoon-angler-fish.glb",
+  hq_zorag: "zorag-mutant-angler.glb",
+  hq_stingray: "stonewisp-mutant-stingray.glb",
+  hq_stylizedray: "stylized-mutant-stingray.glb",
+  hq_remora: "remora.glb",
+  hq_mutantfish: "mutant-deep-sea-fish.glb",
+  hq_jellyfish: "jellyfish.glb",
+  hq_tuna: "tuna-fish.glb"
+};
+const HQ_SPECIES_MODELS = {
+  silver_scad: ["hq_bluegill", .92], sardine: ["hq_trout", 1], spotted_bream: ["hq_clownfish", .88], moon_carp: ["hq_tropical", 1.02], prism_guppy: ["hq_bluegill", .82], lagoon_pike: ["hq_sailfish", .9],
+  red_snapper: ["hq_tropical", .94], grouper: ["hq_angler", .88], blue_spotted_ray: ["hq_manta", .94], coral_dragon: ["hq_tropical", 1.06], neon_lionfish: ["hq_tropical", .9], crystal_turtle: ["hq_stylizedray", .82],
+  deep_cod: ["hq_trout", .94], bluefin_tuna: ["hq_tuna", 1], oarfish: ["hq_remora", 1.08], lanternfish: ["hq_zorag", .82], gloom_sword: ["hq_sailfish", .96], plasma_manta: ["hq_manta", 1.02],
+  abyss_eel: ["hq_remora", 1.06], black_sea_bream: ["hq_bluegill", .94], ghost_shark: ["hq_zorag", .9], starlight_whale: ["hq_mutantfish", 1.02], nebula_eel: ["hq_stingray", 1.02], titan_whale: ["hq_mutantfish", 1.1],
+  crystal_smelt: ["hq_bluegill", .9], aurora_cod: ["hq_trout", .96], phosphor_ray: ["hq_manta", .98], cobalt_marlin: ["hq_sailfish", 1.02], aurora_dragon_eel: ["hq_remora", 1.05], sky_jelly: ["hq_jellyfish", 1.05],
+  magma_bass: ["hq_tropical", .96], blacksmoke_eel: ["hq_remora", 1.04], flame_marlin: ["hq_sailfish", 1.02], ember_snapper: ["hq_bluegill", .96], lava_goblin_shark: ["hq_zorag", .96], primordial_whalefish: ["hq_mutantfish", 1.08],
+  relic_damselfish: ["hq_clownfish", .92], titanium_barracuda: ["hq_sailfish", 1.02], blue_steel_pomfret: ["hq_tuna", .96], watcher_swordfish: ["hq_sailfish", 1.06], mech_ghost_shark: ["hq_zorag", 1], abyss_core: ["hq_mutantfish", 1.02],
+  stardust_sardine: ["hq_trout", .92], phantom_moon_ray: ["hq_manta", 1.02], void_tuna: ["hq_tuna", 1.04], gravity_oarfish: ["hq_remora", 1.08], void_whale: ["hq_mutantfish", 1.1], genesis_whale: ["hq_mutantfish", 1.16]
 };const ZONE_FISH_IDS = {
   shallow: ["silver_scad", "sardine", "spotted_bream", "moon_carp", "prism_guppy", "lagoon_pike"],
   reef: ["red_snapper", "grouper", "blue_spotted_ray", "coral_dragon", "neon_lionfish", "crystal_turtle"],
@@ -339,6 +365,84 @@ function placeFishInLane(fish, lane) {
   updateFishRenderOrder(fish);
 }
 
+const hqFishTemplates = new Map();
+
+function freezeFishModel(source, color) {
+  const root = new THREE.Group();
+  const tint = new THREE.Color(color || "#8cecf5");
+  source.updateMatrixWorld(true);
+  source.traverse((child) => {
+    if (!child.isMesh || !child.geometry) return;
+    const geometry = child.geometry.clone();
+    geometry.applyMatrix4(child.matrixWorld);
+    const sourceMaterials = Array.isArray(child.material) ? child.material : [child.material];
+    const materials = sourceMaterials.filter(Boolean).map((material) => {
+      const next = material.clone();
+      if (next.color) next.color.lerp(tint, 0.12);
+      if ("roughness" in next) next.roughness = Math.min(0.55, Math.max(0.26, Number(next.roughness) || 0.42));
+      if ("metalness" in next) next.metalness = Math.min(0.18, Number(next.metalness) || 0);
+      next.side = THREE.DoubleSide;
+      next.toneMapped = false;
+      return next;
+    });
+    const mesh = new THREE.Mesh(geometry, Array.isArray(child.material) ? materials : materials[0]);
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    root.add(mesh);
+  });
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  root.position.sub(center);
+  const longest = Math.max(size.x, size.y, size.z) || 1;
+  const wrapper = new THREE.Group();
+  wrapper.add(root);
+  wrapper.scale.setScalar(1 / longest);
+  if (size.z > size.x * 1.08) wrapper.rotation.y = Math.PI / 2;
+  wrapper.userData.fishModelFrozen = true;
+  return wrapper;
+}
+
+function createHighQualityFish(speciesId) {
+  const entry = HQ_SPECIES_MODELS[speciesId];
+  if (!entry || !models[entry[0]]) return null;
+  let template = hqFishTemplates.get(speciesId);
+  if (!template) {
+    const [modelKey, color] = SPECIES_MODELS[speciesId] || ["dart", "#9de8f4"];
+    template = freezeFishModel(models[entry[0]], color);
+    template.userData.modelKey = modelKey;
+    hqFishTemplates.set(speciesId, template);
+  }
+  const root = template.clone(true);
+  const group = new THREE.Group();
+  group.add(root);
+  group.userData.speciesId = speciesId;
+  group.userData.model = root;
+  group.userData.sprite = null;
+  group.userData.hqModel = true;
+  group.userData.color = new THREE.Color((SPECIES_MODELS[speciesId] || ["dart", "#9de8f4"])[1]);
+  group.userData.phase = rand() * Math.PI * 2;
+  group.userData.speed = 0.34 + rand() * 0.34;
+  group.userData.baseScale = (0.72 + rand() * 0.42) * Number(entry[1] || 1) * 1.55;
+  group.userData.baseY = 0;
+  group.userData.route = "horizontal";
+  group.userData.mode = "schooling";
+  group.scale.setScalar(group.userData.baseScale);
+  return group;
+}
+
+function shouldUseHighQualityFishModels() {
+  return !window.TIDE_FORCE_SPRITES && quality !== "low" && window.innerWidth >= 760 && !navigator.connection?.saveData;
+}
+
+function ensureZoneFishModels(zoneId) {
+  if (!shouldUseHighQualityFishModels()) return Promise.resolve();
+  const ids = ZONE_FISH_IDS[zoneId] || ZONE_FISH_IDS.shallow;
+  const keys = Array.from(new Set(ids.map((id) => HQ_SPECIES_MODELS[id]?.[0]).filter(Boolean)));
+  return Promise.all(keys.map((key) => ensureModelAsset(key))).catch((error) => {
+    console.warn("High-quality fish preload failed", error);
+  });
+}
 function createSpriteFish(speciesId) {
   const [modelKey, color] = SPECIES_MODELS[speciesId] || ["dart", "#9de8f4"];
   const group = new THREE.Group();
@@ -391,12 +495,13 @@ function placeFishSchool() {
   school.forEach((fish) => scene.remove(fish));
   school = [];
   const zoneIds = ZONE_FISH_IDS[currentZone] || ZONE_FISH_IDS.shallow;
-  const count = fishDensityTarget || (quality === "high" ? 64 : 36);
+  const hqReady = shouldUseHighQualityFishModels() && zoneIds.every((id) => Boolean(models[HQ_SPECIES_MODELS[id]?.[0]]));
+  const count = hqReady ? Math.min(fishDensityTarget || 36, quality === "high" ? 36 : 24) : (fishDensityTarget || (quality === "high" ? 64 : 36));
   const laneCount = 8;
   const perLane = Math.ceil(count / laneCount);
   for (let i = 0; i < count; i += 1) {
     const id = zoneIds[i % zoneIds.length];
-    const fish = createSpriteFish(id);
+    const fish = (hqReady ? createHighQualityFish(id) : null) || createSpriteFish(id);
     const data = fish.userData;
     const lane = i % laneCount;
     const slot = Math.floor(i / laneCount);
@@ -1233,6 +1338,7 @@ function updateFish(now, delta) {
     }
     if (data.sprite && window.TideSpriteFish) window.TideSpriteFish.update(data.sprite, time, { speed: data.speed, phase: data.phase, direction: data.direction, lod: data.lod, mode: data.mode });
     const root = data.model;
+    if (root?.userData?.modelKey) root.rotation.z = Math.sin(time * 2.4 + data.phase) * 0.035;
     const fins = root && root.userData ? root.userData.extraFins : null;
     if (Array.isArray(fins)) {
       if (fins[0]) fins[0].rotation.x = Math.sin(time * 7 + data.phase) * 0.16;
@@ -1364,7 +1470,7 @@ function applyZone(zoneId) {
   createZoneLandmarks(currentZone);
   createEnvironmentEffects();
   placeFishSchool();
-  ensureZoneSprites(currentZone).then(() => {
+  Promise.all([ensureZoneSprites(currentZone), ensureZoneFishModels(currentZone)]).then(() => {
     if (currentZone === zoneId && ready) placeFishSchool();
   });
 }
@@ -1401,16 +1507,18 @@ function ensureBossModelData() {
 async function ensureModelAsset(key) {
   if (models[key]) return models[key];
   if (modelLoads.has(key)) return modelLoads.get(key);
-  const file = MODEL_FILES[key];
+  const bossFile = MODEL_FILES[key];
+  const fishFile = FISH_MODEL_FILES[key];
+  const file = bossFile || fishFile;
   if (!file) throw new Error(`Unknown model asset: ${key}`);
   const promise = (async () => {
-    await ensureBossModelData();
-    const dataKey = file.replace(/\.glb$/i, "");
-    const data = window.TIDE_BOSS_MODEL_DATA?.[dataKey] || window.TIDE_MODEL_DATA?.[dataKey];
+    if (bossFile) await ensureBossModelData();
+    const dataKey = bossFile ? file.replace(/\.glb$/i, "") : "";
+    const data = bossFile ? (window.TIDE_BOSS_MODEL_DATA?.[dataKey] || window.TIDE_MODEL_DATA?.[dataKey]) : null;
     const gltf = data ? await new Promise((resolve, reject) => {
       const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
       new GLTFLoader().parse(bytes.buffer, "", resolve, reject);
-    }) : await new GLTFLoader().loadAsync(`${MODEL_ROOT}${file}`);
+    }) : await new GLTFLoader().loadAsync(`${bossFile ? MODEL_ROOT : FISH_MODEL_ROOT}${file}`);
     models[key] = gltf.scene;
     modelAnimations[key] = gltf.animations || [];
     return gltf.scene;
@@ -1452,6 +1560,7 @@ async function init() {
     await ensureZoneSprites(currentZone);
     placeFishSchool();
     resize();
+    ensureZoneFishModels(currentZone).then(() => { if (renderer) placeFishSchool(); });
     ready = true;
     app.classList.add("webgl-ready");
     window.dispatchEvent(new CustomEvent("tide:3d-ready", { detail: { zone: currentZone } }));
@@ -1515,6 +1624,8 @@ window.Tide3D = {
   get zone() { return currentZone; },
   get modelCount() { return new Set(Object.values(SPECIES_MODELS).map(([key]) => key)).size; },
   get fishCount() { return school.length; },
+  get highQualityModelCount() { return hqFishTemplates.size; },
+  get fishVisualMode() { return !shouldUseHighQualityFishModels() ? "sprite" : (hqFishTemplates.size ? "downloaded-3d" : "loading"); },
   get caughtFishCount() { return school.filter((fish) => fish.userData.isCaught).length; },
   get hiddenFishCount() { return school.filter((fish) => fish.userData.hiddenUntil).length; },
   get debugColors() { const out=[]; school.slice(0,4).forEach((fish)=>{fish.traverse((child)=>{if(child.isMesh && child.material && child.material.color && !out.includes(child.material.color.getHexString()))out.push(child.material.color.getHexString());});}); return out; },

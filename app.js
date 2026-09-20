@@ -183,6 +183,7 @@
     leaderboardButton: document.getElementById("leaderboardButton"),
     profileButton: document.getElementById("profileButton"),
     contractsButton: document.getElementById("contractsButton"),
+    guideButton: document.getElementById("guideButton"),
     expeditionButton: document.getElementById("expeditionButton"),
     expeditionStatus: document.getElementById("expeditionStatus"),
     bossButton: document.getElementById("bossButton"),
@@ -802,7 +803,7 @@
       profileSetupSeen: false,
       leaderboard: { board: "captain", lastSnapshotAt: 0, lastSubmitAt: 0, cache: {} },
       bossTutorialSeen: false,
-      ui: { keyGuideCollapsed: false, expandedBranch: "net_mastery", expandedGroup: 0, equipmentTab: "equipped", bossBannerExpanded: false, leftPanelOpen: false, rightPanelOpen: false, leftPanelPinned: false, rightPanelPinned: false }
+      ui: { keyGuideCollapsed: false, guideSeen: false, expandedBranch: "net_mastery", expandedGroup: 0, equipmentTab: "equipped", bossBannerExpanded: false, leftPanelOpen: false, rightPanelOpen: false, leftPanelPinned: false, rightPanelPinned: false }
     };
   }
 
@@ -2975,9 +2976,16 @@
   }
 
   function closeModal() {
+    const closedType = activeModal?.type || "";
     activeModal = null;
     dom.modalLayer.classList.remove("open");
     dom.modalLayer.innerHTML = "";
+    if (closedType === "guide") {
+      state.ui.guideSeen = true;
+      saveGame(true);
+    } else if (closedType === "profile" && !state.ui.guideSeen) {
+      window.setTimeout(() => { if (!activeModal) openModal("guide"); }, 220);
+    }
   }
 
   function renderModal() {
@@ -3138,6 +3146,20 @@
           <h3 class="modal-subheading">航行日志</h3>${logMarkup}`;
         footer = `<button class="modal-button" type="button" data-modal-close>返回海域</button><button class="modal-button primary" type="button" data-expedition-return ${pending || active.progress <= 0 ? "disabled" : ""}>${active.expired ? `结算航线 · ${formatNumber(earlyPreview.gold)} 金币` : `提前返航 · 约 ${formatNumber(earlyPreview.gold)} 金币`}</button>`;
       }
+    }    if (activeModal.type === "guide") {
+      title = "新船员玩法指南";
+      subtitle = "第一次进入潮汐渔场，按这 6 步理解核心循环。指南可随时点击底部「玩法指南」重新打开。";
+      body = `<div class="guide-hero"><span>⚓</span><div><small>舰长第一次出航</small><h3>先撒网，再把渔获变成永久成长</h3><p>金币用于解锁海域和升级天赋；图鉴、装备、科研、首领奖杯和航线等级会在长期保留。</p></div></div>
+        <div class="guide-steps">
+          <article class="guide-step"><span>01</span><div><small>基础操作</small><h3>点击海面撒网</h3><p>点击海面任意位置、底部「撒网」或按空格即可捕鱼。鱼舱装满后先出售，否则新渔获会停止进入鱼舱。</p><ul><li>金色、青色或紫色脉冲圈是声呐热点。</li><li>把网落在热点内会获得额外数量或稀有率。</li><li>空格可连续撒网，手机点海面即可。</li></ul></div></article>
+          <article class="guide-step"><span>02</span><div><small>成长循环</small><h3>出售 → 升级 → 解锁海域</h3><p>左侧「母港交易」出售渔获，底部「深潜协议」升级永久天赋。金币足够后点击顶部海域标签解锁新海域。</p><ul><li>普通鱼是稳定收入，稀有鱼和传说鱼是主要爆发。</li><li>海域越深，鱼价和稀有率越高，但空网率也会变化。</li><li>不要只堆捕捞，自动化、售价和首领天赋同样重要。</li></ul></div></article>
+          <article class="guide-step"><span>03</span><div><small>长期航线</small><h3>深渊航线与节点选择</h3><p>底部「深渊航线」可部署 10–20 分钟航程。成功撒网、命中热点和捕获高稀有鱼都会推进航程。</p><ul><li>抵达节点后会暂停推进，选择金币、合金、结晶、装备保底或首领增益。</li><li>航程等级永久提高全收益、首领奖励和热点持续时间。</li><li>自动撒网只能获得约 45% 的航程推进。</li></ul></div></article>
+          <article class="guide-step"><span>04</span><div><small>首领战</small><h3>三阶段破坏巨兽</h3><p>累计捕获当前海域鱼类会召唤首领。首领分为声呐核心、外层护甲和虚空心脏三个阶段。</p><ul><li>第一阶段：把网落在发光弱点，破坏声呐核心。</li><li>第二阶段：命中热点或捕获高稀有鱼，破坏外层护甲。</li><li>第三阶段：红色窗口出现时立即收网；精准命中越完美，传说装备概率越高。</li></ul></div></article>
+          <article class="guide-step"><span>05</span><div><small>构筑系统</small><h3>装备、技能与套装</h3><p>底部「舰载装备」管理 8 个槽位、套装、主动技和图鉴。相同装备会转化为强化或合金。</p><ul><li>装备主动技默认自动释放，手动可精确配合首领窗口。</li><li>五套套装在 2 / 4 / 6 / 8 件时逐层增强。</li><li>深渊航线完整返航会提供打捞装备与保底进度。</li></ul></div></article>
+          <article class="guide-step"><span>06</span><div><small>长期目标</small><h3>图鉴、科研与深渊跃迁</h3><p>第一次捕获鱼种会点亮图鉴并提供永久小加成。科研和协议需要深渊结晶，适合在长期游玩中逐步解锁。</p><ul><li>图鉴星级：100 / 1,000 / 10,000 次累计捕获。</li><li>深渊跃迁会重置金币、鱼舱、普通海域和普通天赋。</li><li>装备、图鉴、成就、科研、协议、首领奖杯和航线等级永久保留。</li></ul></div></article>
+        </div>
+        <div class="guide-controls"><strong>快捷入口</strong><span><kbd>Space</kbd>撒网</span><span><kbd>S</kbd>出售</span><span><kbd>E</kbd>深潜协议</span><span><kbd>X</kbd>深渊航线</span><span><kbd>G</kbd>舰载装备</span><span><kbd>R/T/Y</kbd>装备技能</span><span><kbd>K</kbd>玩法指南</span></div>`;
+      footer = `<button class="modal-button primary" type="button" data-modal-close>明白，开始捕鱼</button>`;
     }    if (activeModal.type === "profile") {
       const configured = Boolean(window.LeaderboardBridge?.isConfigured?.());
       title = "调查员档案";
@@ -3409,6 +3431,7 @@
     if (key === "g") { openModal("equipment"); return true; }
     if (key === "q") { openModal("contracts"); return true; }
     if (key === "x") { openModal("expedition"); return true; }
+    if (key === "k") { openModal("guide"); return true; }
     if (key === "b") { openModal("boss"); return true; }
     if (key === "l") { openLeaderboard(); return true; }
     if (key === "p") { openModal("profile"); return true; }
@@ -3529,6 +3552,7 @@
     dom.creditsButton.addEventListener("click", () => openModal("credits"));
     dom.equipmentButton.addEventListener("click", () => openModal("equipment"));
     dom.contractsButton.addEventListener("click", () => openModal("contracts"));
+    dom.guideButton?.addEventListener("click", () => openModal("guide"));
     dom.expeditionButton?.addEventListener("click", () => openModal("expedition"));
     dom.bossButton.addEventListener("click", () => openModal("boss"));
     dom.leaderboardButton.addEventListener("click", openLeaderboard);
@@ -3778,6 +3802,7 @@
     saveGame(true);
 
     ensureCaptainProfile();
+    if (state.profile && !state.ui.guideSeen) window.setTimeout(() => { if (!activeModal) openModal("guide"); }, 1100);
     checkPublishedVersion();
     registerOfflineApp();
     if (state.pendingOffline) {

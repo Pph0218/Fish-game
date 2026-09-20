@@ -113,3 +113,11 @@ window.TIDE_CUSTOM_FISH_ASSETS = {
 `atlas: false` 表示单张静态图；`atlas: true` 表示 4×2 精灵表。
 
 未登记图片的鱼种会继续使用当前内置精灵模板。替换素材不会修改捕鱼、价格、稀有度或存档逻辑。
+
+## 当前运行时策略
+
+- 桌面端宽度 `>= 760px`：按海域延迟加载 `assets/deepsea/downloads/` 中的高质量 GLB 鱼模型，保留源模型材质与贴图，单海域约 36 条同屏鱼。
+- 手机与低性能设备：使用 `assets/fish/singles/` 的透明精灵作为性能降级层，保持 36 条鱼群覆盖。
+- 模型加载完成后只会重新布置当前海域鱼群，不会同时常驻全部 15 个模型。
+- 调试时可在控制台设置 `window.TIDE_FORCE_SPRITES = true`，用于强制检查精灵降级路径。
+- `assets/fish/custom-manifest.js` 现在主要作为精灵兜底和自定义替换入口；桌面端优先使用下载的 GLB 模型。
