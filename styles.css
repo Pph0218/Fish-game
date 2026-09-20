@@ -4522,3 +4522,453 @@ button:not(:disabled):hover {
   body::before { opacity: .16; }
   #seaPanel::before { opacity: .18; background-size: 38px 38px, 38px 38px, 100% 100%, 100% 100%; }
 }
+/* ── 深渊航线：长期玩法与节点决策 ───────────────────────────── */
+.expedition-hero,
+.expedition-active-head,
+.expedition-node-head,
+.expedition-clear-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.expedition-hero {
+  padding: 18px;
+  border: 1px solid rgba(132, 221, 222, .2);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(52, 144, 172, .13), rgba(9, 27, 49, .28));
+}
+
+.expedition-hero > span,
+.expedition-route-emblem {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  border: 1px solid rgba(142, 239, 243, .3);
+  border-radius: 18px;
+  color: #baf8ff;
+  background: radial-gradient(circle at 35% 25%, rgba(177, 251, 255, .22), transparent 58%), rgba(20, 80, 102, .22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 0 24px rgba(77, 219, 229, .12);
+  font-size: 24px;
+}
+
+.expedition-hero h3,
+.expedition-route-card h3,
+.expedition-active-head h3,
+.expedition-node-head h3 {
+  margin: 2px 0 5px;
+  color: #edffff;
+}
+
+.expedition-hero p,
+.expedition-route-card p,
+.expedition-active-head p,
+.expedition-node-head p {
+  margin: 0;
+  color: rgba(211, 240, 247, .72) !important;
+  line-height: 1.65;
+}
+
+.expedition-hero small,
+.expedition-route-card small,
+.expedition-active-head small,
+.expedition-node-head small {
+  color: rgba(165, 224, 234, .68);
+}
+
+.crew-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.crew-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  padding: 10px 12px;
+  border: 1px solid rgba(137, 218, 226, .15);
+  border-radius: 16px;
+  color: #dffcff;
+  text-align: left;
+  background: rgba(5, 19, 37, .38);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.crew-option:hover,
+.crew-option.active {
+  transform: translateY(-1px);
+  border-color: rgba(127, 238, 238, .48);
+  background: rgba(41, 130, 151, .2);
+}
+
+.crew-option > span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  color: #92f4f2;
+  background: rgba(98, 222, 224, .12);
+  font-size: 18px;
+}
+
+.crew-option div {
+  flex: 1;
+  min-width: 0;
+}
+
+.crew-option strong,
+.crew-option small {
+  display: block;
+}
+
+.crew-option small {
+  margin-top: 3px;
+  color: rgba(196, 229, 238, .64);
+  line-height: 1.35;
+}
+
+.crew-option b {
+  color: #8cebf0;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.expedition-routes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.expedition-route-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--route-accent, #67e8f9) 34%, transparent);
+  border-radius: 18px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--route-accent, #67e8f9) 10%, transparent), rgba(5, 17, 34, .54));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.09);
+}
+
+.expedition-route-card.locked {
+  filter: saturate(.48);
+  opacity: .7;
+}
+
+.expedition-route-top,
+.expedition-card-foot,
+.expedition-bonus-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+}
+
+.expedition-route-top > span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  color: var(--route-accent, #67e8f9);
+  background: color-mix(in srgb, var(--route-accent, #67e8f9) 14%, transparent);
+  font-size: 19px;
+}
+
+.expedition-route-top > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.expedition-route-top b {
+  color: var(--route-accent, #7ff4f3);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.expedition-route-card > p {
+  margin: 13px 0;
+  min-height: 68px;
+  font-size: 12px;
+}
+
+.expedition-card-stats,
+.expedition-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.expedition-card-stats {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(151, 224, 233, .11);
+}
+
+.expedition-card-stats span,
+.expedition-metrics > span {
+  min-width: 0;
+  padding: 7px 8px;
+  border-radius: 11px;
+  background: rgba(5, 19, 36, .35);
+}
+
+.expedition-card-stats small,
+.expedition-card-stats strong,
+.expedition-metrics small,
+.expedition-metrics strong {
+  display: block;
+}
+
+.expedition-card-stats small,
+.expedition-metrics small {
+  color: rgba(174, 219, 229, .64);
+  font-size: 9px;
+}
+
+.expedition-card-stats strong,
+.expedition-metrics strong {
+  margin-top: 3px;
+  color: #e9ffff;
+  font-size: 11px;
+}
+
+.expedition-card-foot {
+  margin-top: 12px;
+}
+
+.expedition-card-foot > span {
+  color: rgba(178, 226, 234, .68);
+  font-size: 10px;
+}
+
+.expedition-active-head {
+  position: relative;
+  padding: 15px;
+  border: 1px solid rgba(132, 221, 222, .2);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(42, 122, 151, .16), rgba(6, 19, 38, .4));
+}
+
+.expedition-route-emblem {
+  --route-accent: #67e8f9;
+  color: var(--route-accent);
+  border-color: color-mix(in srgb, var(--route-accent) 38%, transparent);
+}
+
+.expedition-active-head > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.expedition-active-head > b {
+  align-self: flex-start;
+  color: #89f4f1;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.expedition-progress-large {
+  position: relative;
+  height: 24px;
+  margin: 14px 0;
+  overflow: hidden;
+  border: 1px solid rgba(126, 221, 229, .18);
+  border-radius: 999px;
+  background: rgba(3, 12, 27, .55);
+}
+
+.expedition-progress-large i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2cb9ce, #7ef2c7, #ffd66b);
+  box-shadow: 0 0 18px rgba(98, 225, 224, .34);
+}
+
+.expedition-progress-large span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #f0ffff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.expedition-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.expedition-node-card,
+.expedition-clear-card {
+  margin-top: 13px;
+  padding: 14px;
+  border: 1px solid rgba(255, 211, 116, .26);
+  border-radius: 17px;
+  background: linear-gradient(145deg, rgba(112, 76, 34, .13), rgba(5, 17, 35, .42));
+}
+
+.expedition-node-head > span,
+.expedition-clear-card > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  color: #ffd66b;
+  background: rgba(255, 206, 94, .12);
+  font-size: 20px;
+}
+
+.expedition-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 13px;
+}
+
+.expedition-choice {
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 214, 120, .22);
+  border-radius: 14px;
+  color: #fff5d6;
+  text-align: left;
+  background: rgba(83, 58, 27, .18);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.expedition-choice:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 221, 132, .58);
+  background: rgba(126, 83, 30, .26);
+}
+
+.expedition-choice strong,
+.expedition-choice small {
+  display: block;
+}
+
+.expedition-choice small {
+  margin-top: 5px;
+  color: rgba(255, 238, 196, .7);
+  line-height: 1.45;
+}
+
+.expedition-bonus-row {
+  justify-content: flex-start;
+  margin-top: 12px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: rgba(7, 27, 47, .45);
+}
+
+.expedition-bonus-row small {
+  flex: 0 0 auto;
+  color: rgba(155, 215, 226, .66);
+}
+
+.expedition-bonus-row span {
+  color: #9ef1ec;
+  font-size: 11px;
+}
+
+.expedition-log {
+  display: grid;
+  gap: 7px;
+}
+
+.expedition-log > div {
+  display: grid;
+  grid-template-columns: 46px 86px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 11px;
+  background: rgba(4, 17, 34, .42);
+}
+
+.expedition-log small {
+  color: rgba(153, 216, 227, .6);
+}
+
+.expedition-log strong {
+  color: #e8ffff;
+  font-size: 11px;
+}
+
+.expedition-log span {
+  color: rgba(201, 232, 239, .72);
+  font-size: 10px;
+}
+
+.sonar-hotspot small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(220, 250, 255, .72);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .expedition-routes {
+    grid-template-columns: 1fr;
+  }
+
+  .expedition-route-card {
+    min-height: 0;
+  }
+
+  .expedition-route-card > p {
+    min-height: 0;
+  }
+
+  .expedition-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .crew-options,
+  .expedition-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .expedition-hero,
+  .expedition-active-head {
+    align-items: flex-start;
+  }
+
+  .expedition-hero > span,
+  .expedition-route-emblem {
+    width: 44px;
+    height: 44px;
+    border-radius: 15px;
+    font-size: 20px;
+  }
+
+  .expedition-active-head > b {
+    position: absolute;
+    top: 13px;
+    right: 13px;
+  }
+
+  .expedition-card-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .expedition-log > div {
+    grid-template-columns: 42px 1fr;
+  }
+
+  .expedition-log span {
+    grid-column: 2;
+  }
+}

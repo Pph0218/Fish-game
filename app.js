@@ -183,6 +183,8 @@
     leaderboardButton: document.getElementById("leaderboardButton"),
     profileButton: document.getElementById("profileButton"),
     contractsButton: document.getElementById("contractsButton"),
+    expeditionButton: document.getElementById("expeditionButton"),
+    expeditionStatus: document.getElementById("expeditionStatus"),
     bossButton: document.getElementById("bossButton"),
     equipmentButton: document.getElementById("equipmentButton"),
     ascensionButton: document.getElementById("ascensionButton"),
@@ -684,6 +686,58 @@
     legendary: { name: "传说回响", radius: 9, duration: 10, amount: 0.08, rare: 0.06, legendary: 0.008, color: "#ffd66b" }
   };
 
+  const EXPEDITION_CREW_MODES = {
+    balanced: { name: "均衡护航", icon: "◎", description: "捕获量 +6%，适合稳定推进。", catchPct: 0.06 },
+    harvest: { name: "渔获优先", icon: "▰", description: "捕获量 +12%，优先保证每网数量。", catchPct: 0.12 },
+    research: { name: "稀有优先", icon: "◉", description: "稀有率 +3%，传说率 +0.4%。", rareChance: 0.03, legendChance: 0.004 },
+    vanguard: { name: "巨兽辅助", icon: "☠", description: "首领阶段进度 +18%，捕获量 -2%。", bossProgressPct: 0.18, catchPct: -0.02 }
+  };
+
+  const EXPEDITION_ROUTES = [
+    { id: "whale_ruins", name: "鲸落古径", icon: "◈", accent: "#67e8f9", tag: "稳定航线", duration: 10 * 60, requiredCasts: 36, nodeCount: 4, requiredZones: 1, baseGold: 500, goldPerCast: 45, alloy: 4, crystals: 0, risk: "低风险", description: "沿古代鲸落缓慢推进，声呐回波稳定，适合熟悉热点落点与航线节奏。" },
+    { id: "rift_return", name: "热泉回航", icon: "☄", accent: "#f6b85f", tag: "稀有航线", duration: 15 * 60, requiredCasts: 54, nodeCount: 4, requiredZones: 2, baseGold: 1800, goldPerCast: 75, alloy: 8, crystals: 1, risk: "中风险", description: "穿过热泉裂谷的漂浮航标，稀有回声更密集，但需要更精准的落点判断。" },
+    { id: "sunken_echo", name: "沉城回声", icon: "✹", accent: "#b48cff", tag: "深潜航线", duration: 20 * 60, requiredCasts: 78, nodeCount: 4, requiredZones: 4, baseGold: 6000, goldPerCast: 130, alloy: 16, crystals: 3, risk: "高风险", description: "进入沉没观测城的失联航道，航线节点复杂，但能带回科研材料与首领回声。" }
+  ];
+
+  const EXPEDITION_NODE_EVENTS = [
+    {
+      title: "漂流残骸",
+      icon: "▣",
+      description: "一艘旧时代调查船的货舱卡在暗流中，拆解或扫描都要付出时间。",
+      choices: [
+        { id: "salvage", label: "拆解补给", result: "本次结算金币 +18%，合金 +4", effect: { goldPct: 0.18, alloy: 4 } },
+        { id: "scan", label: "扫描货舱", result: "本航程捕获量 +8%", effect: { catchPct: 0.08 } }
+      ]
+    },
+    {
+      title: "异常声呐",
+      icon: "◉",
+      description: "一段不属于当前海域的回声在航线下反复出现。",
+      choices: [
+        { id: "resonance", label: "声呐共鸣", result: "本航程稀有率 +2.5%，传说率 +0.4%", effect: { rareChance: 0.025, legendChance: 0.004 } },
+        { id: "sample", label: "回收样本", result: "深渊结晶 +2，航程进度 +2", effect: { crystals: 2, progress: 2 } }
+      ]
+    },
+    {
+      title: "古代航标",
+      icon: "⌖",
+      description: "一座仍在运转的航标指向地图上没有标注的深沟。",
+      choices: [
+        { id: "calibrate", label: "校准航线", result: "航程进度 +4，提前接近返航节点", effect: { progress: 4 } },
+        { id: "loot", label: "拆下晶核", result: "本次结算金币 +12%，合金 +3", effect: { goldPct: 0.12, alloy: 3 } }
+      ]
+    },
+    {
+      title: "巨兽回声",
+      icon: "☠",
+      description: "低频震动从深处传来，声呐边缘浮出巨型生命的轮廓。",
+      choices: [
+        { id: "vanguard", label: "呼叫护航", result: "本航程首领阶段进度 +25%", effect: { bossProgressPct: 0.25 } },
+        { id: "data", label: "记录回声", result: "深渊结晶 +3，本航程稀有率 +2%", effect: { crystals: 3, rareChance: 0.02 } }
+      ]
+    }
+  ];
+
   const BOSS_DEFS = {
     shallow: { name: "触礁巨鲷", threshold: 250, icon: "◉", phases: ["声呐追踪", "护甲破译", "终结收网"] },
     reef: { name: "珊瑚守卫", threshold: 1200, icon: "◈", phases: ["声呐追踪", "护甲破译", "终结收网"] },
@@ -699,7 +753,7 @@
     const upgrades = {};
     allNodes.forEach((node) => { upgrades[node.id] = 0; });
     return {
-      version: 6,
+      version: 7,
       gold: 0,
       currentZone: "shallow",
       unlockedZones: ["shallow"],
@@ -739,6 +793,7 @@
         discovered: {}
       },
       sonar: { hotspots: [], nextSpawnAt: Date.now() + 12000, history: [] },
+      expedition: { active: null, completed: 0, bestScore: 0, crewMode: "balanced", log: [] },
       ecology: Object.fromEntries(zones.map((zone) => [zone.id, { preyDensity: 1, predatorPressure: 0.05, schoolMorale: 0.92, predatorCount: 0, lastUpdatedAt: Date.now() }])),
       codexMastery: {},
       contracts: { date: "", tasks: [], progress: {}, claimed: {}, streak: 0 },
@@ -886,6 +941,201 @@
     };
   }
 
+  function getExpeditionRoute(routeId) {
+    return EXPEDITION_ROUTES.find((route) => route.id === routeId) || EXPEDITION_ROUTES[0];
+  }
+
+  function getExpeditionCrew(mode = state.expedition?.crewMode) {
+    return EXPEDITION_CREW_MODES[mode] || EXPEDITION_CREW_MODES.balanced;
+  }
+
+  function getExpeditionBonuses() {
+    const active = state.expedition?.active;
+    const crew = active ? getExpeditionCrew() : {};
+    const bonuses = active?.bonuses || {};
+    return {
+      catchPct: Number(crew.catchPct || 0) + Number(bonuses.catchPct || 0),
+      rareChance: Number(crew.rareChance || 0) + Number(bonuses.rareChance || 0),
+      legendChance: Number(crew.legendChance || 0) + Number(bonuses.legendChance || 0),
+      bossProgressPct: Number(crew.bossProgressPct || 0) + Number(bonuses.bossProgressPct || 0)
+    };
+  }
+
+  function getExpeditionRouteUnlocked(route) {
+    return state.unlockedZones.length >= (Number(route?.requiredZones) || 1);
+  }
+
+  function getExpeditionProgressRatio(active = state.expedition?.active) {
+    if (!active) return 0;
+    return clamp((Number(active.progress) || 0) / Math.max(1, Number(active.requiredCasts) || 1), 0, 1);
+  }
+
+  function getExpeditionTimeRemaining(active = state.expedition?.active) {
+    if (!active) return 0;
+    return Math.max(0, (Number(active.endsAt) || 0) - Date.now()) / 1000;
+  }
+
+  function getExpeditionRewardPreview(route, progress = 0, early = false, expired = false) {
+    const zoneMult = 1 + (currentZone().priceMult - 1) * 0.12;
+    const ratio = clamp(progress / Math.max(1, route.requiredCasts), 0, 1);
+    const earlyFactor = expired ? clamp(0.45 + ratio * 0.55, 0.45, 1) : early ? clamp(0.35 + ratio * 0.35, 0.35, 0.7) : 1;
+    return {
+      gold: Math.round((Number(route.baseGold) + progress * Number(route.goldPerCast)) * zoneMult * earlyFactor),
+      alloy: Math.round(Number(route.alloy || 0) * earlyFactor),
+      crystals: Math.round(Number(route.crystals || 0) * earlyFactor)
+    };
+  }
+
+  function createExpeditionNode(index) {
+    const event = EXPEDITION_NODE_EVENTS[index % EXPEDITION_NODE_EVENTS.length];
+    return {
+      id: `${state.expedition.active.routeId}:${index}`,
+      index,
+      title: event.title,
+      icon: event.icon,
+      description: event.description,
+      choices: event.choices.map((choice) => ({ ...choice, effect: { ...(choice.effect || {}) } }))
+    };
+  }
+
+  function applyExpeditionChoiceEffect(effect = {}) {
+    const active = state.expedition?.active;
+    if (!active) return;
+    active.bonuses = { goldPct: 0, alloy: 0, crystals: 0, catchPct: 0, rareChance: 0, legendChance: 0, bossProgressPct: 0, ...(active.bonuses || {}) };
+    ["goldPct", "alloy", "crystals", "catchPct", "rareChance", "legendChance", "bossProgressPct"].forEach((key) => {
+      active.bonuses[key] = Number(active.bonuses[key] || 0) + Number(effect[key] || 0);
+    });
+    if (effect.progress) active.progress = Math.min(Number(active.requiredCasts) || 0, (Number(active.progress) || 0) + Number(effect.progress));
+  }
+
+  function queueExpeditionNode() {
+    const active = state.expedition?.active;
+    if (!active || active.pendingNode) return false;
+    const nextIndex = Number(active.nodeIndex) || 0;
+    const threshold = Number(active.thresholds?.[nextIndex] || 0);
+    if (threshold && active.progress >= threshold) {
+      active.pendingNode = createExpeditionNode(nextIndex);
+      showToast("航线节点抵达", `${active.pendingNode.title} 已进入决策范围，打开深渊航线完成选择。`, "info");
+      if (activeModal?.type === "expedition") renderModal();
+      return true;
+    }
+    return false;
+  }
+
+  function startExpedition(routeId) {
+    const route = getExpeditionRoute(routeId);
+    if (state.expedition?.active) {
+      showToast("航线正在进行", "完成当前航线或返航结算后才能部署新的航线。", "error");
+      return;
+    }
+    if (!getExpeditionRouteUnlocked(route)) {
+      showToast("航线尚未开放", `需要解锁 ${route.requiredZones} 个海域后才能进入${route.name}。`, "error");
+      return;
+    }
+    const now = Date.now();
+    const thresholds = Array.from({ length: route.nodeCount }, (_, index) => Math.round(route.requiredCasts * (index + 1) / route.nodeCount));
+    state.expedition.active = {
+      routeId: route.id,
+      startedAt: now,
+      endsAt: now + route.duration * 1000,
+      progress: 0,
+      requiredCasts: route.requiredCasts,
+      thresholds,
+      nodeIndex: 0,
+      pendingNode: null,
+      expired: false,
+      bonuses: { goldPct: 0, alloy: 0, crystals: 0, catchPct: 0, rareChance: 0, legendChance: 0, bossProgressPct: 0 },
+      stats: { casts: 0, manual: 0, auto: 0, hotspots: 0, rare: 0, legendary: 0 }
+    };
+    showToast("深渊航线已部署", `${route.name} 开始航行。落网、热点与航线节点都会推进本次航程。`, "gold");
+    showEventBanner(route.name, `${route.tag} · ${formatDuration(route.duration)} · ${getExpeditionCrew().name}`, "rare", 3600);
+    updateAllUI();
+    saveGame(true);
+  }
+
+  function advanceExpedition(weight = 1, context = {}) {
+    const active = state.expedition?.active;
+    if (!active || active.expired || active.pendingNode) return { pending: Boolean(active?.pendingNode), completed: false };
+    const gain = clamp(Number(weight) || 0, 0, 3);
+    if (gain <= 0) return { pending: false, completed: false };
+    active.progress = Math.min(Number(active.requiredCasts) || 0, (Number(active.progress) || 0) + gain);
+    active.stats.casts += context.source === "auto" ? 0.45 : 1;
+    if (context.source === "auto") active.stats.auto += 1;
+    else active.stats.manual += 1;
+    if (context.hotspot) active.stats.hotspots += 1;
+    if (context.hasRare) active.stats.rare += 1;
+    if (context.hasLegendary) active.stats.legendary += 1;
+    const pending = queueExpeditionNode();
+    if (!pending && active.progress >= active.requiredCasts && active.nodeIndex >= active.thresholds.length) {
+      finishExpedition(false);
+      return { pending: false, completed: true };
+    }
+    if (activeModal?.type === "expedition") renderModal();
+    return { pending, completed: false };
+  }
+
+  function resolveExpeditionChoice(choiceId) {
+    const active = state.expedition?.active;
+    const node = active?.pendingNode;
+    if (!active || !node) return;
+    const choice = node.choices.find((item) => item.id === choiceId) || node.choices[0];
+    if (!choice) return;
+    applyExpeditionChoiceEffect(choice.effect);
+    active.nodeIndex = Number(active.nodeIndex || 0) + 1;
+    active.pendingNode = null;
+    state.expedition.log = [...(state.expedition.log || []), { at: Date.now(), route: active.routeId, title: node.title, choice: choice.label, result: choice.result }].slice(-12);
+    showToast("航线节点完成", `${node.title} · ${choice.result}`, "success");
+    if (active.nodeIndex >= active.thresholds.length) {
+      if (active.progress >= active.requiredCasts || active.expired) finishExpedition(false);
+      else queueExpeditionNode();
+    } else {
+      queueExpeditionNode();
+    }
+    updateAllUI();
+    saveGame(true);
+  }
+
+  function finishExpedition(early = false) {
+    const active = state.expedition?.active;
+    if (!active) return;
+    if (active.pendingNode) {
+      showToast("节点尚未处理", "先完成当前航线节点的选择，再进行返航结算。", "error");
+      return;
+    }
+    const route = getExpeditionRoute(active.routeId);
+    const ratio = getExpeditionProgressRatio(active);
+    const earlyFactor = active.expired ? clamp(0.45 + ratio * 0.55, 0.45, 1) : early ? clamp(0.35 + ratio * 0.35, 0.35, 0.7) : 1;
+    const zoneMult = 1 + (currentZone().priceMult - 1) * 0.12;
+    const bonus = active.bonuses || {};
+    const gold = Math.max(0, Math.round((route.baseGold + active.progress * route.goldPerCast) * zoneMult * (1 + Number(bonus.goldPct || 0)) * earlyFactor));
+    const alloy = Math.max(0, Math.round((Number(route.alloy || 0) + Number(bonus.alloy || 0)) * earlyFactor));
+    const crystals = Math.max(0, Math.round((Number(route.crystals || 0) + Number(bonus.crystals || 0)) * earlyFactor));
+    state.gold += gold;
+    state.totalGoldEarned += gold;
+    state.equipment.alloy += alloy;
+    state.ascension.crystals += crystals;
+    const stats = active.stats || {};
+    const score = Math.round(ratio * 1000 + Number(stats.hotspots || 0) * 50 + Number(stats.rare || 0) * 80 + Number(stats.legendary || 0) * 240);
+    state.expedition.completed = Number(state.expedition.completed || 0) + 1;
+    state.expedition.bestScore = Math.max(Number(state.expedition.bestScore || 0), score);
+    state.expedition.log = [...(state.expedition.log || []), { at: Date.now(), route: active.routeId, title: "返航结算", choice: early ? "提前返航" : "完成航线", result: `得分 ${score}` }].slice(-12);
+    state.expedition.active = null;
+    showToast("航线已结算", `${route.name} · 航程得分 ${score}。获得 ${formatNumber(gold)} 金币、${alloy} 合金与 ${crystals} 结晶。`, "gold");
+    showEventBanner("航线返航", `${route.name} · ${early ? "提前返航" : "完整航程"} · 得分 ${score}`, "gold", 4200);
+    if (activeModal?.type === "expedition") renderModal();
+    updateAllUI();
+    saveGame(true);
+  }
+
+  function updateExpedition(now = Date.now()) {
+    const active = state.expedition?.active;
+    if (!active || active.expired || now < active.endsAt) return;
+    active.expired = true;
+    showEventBanner("航线抵达", "航行时间结束，打开的深渊航线可以结算本次收益。", "gold", 3600);
+    showToast("航线抵达", `${getExpeditionRoute(active.routeId).name} 已完成航行，请打开深渊航线结算。`, "info");
+    if (activeModal?.type === "expedition") renderModal();
+    saveGame(true);
+  }
   function getAllStatBonuses() {
     const gear = getEquipmentBonuses();
     const research = getAscensionBonuses();
@@ -1276,7 +1526,7 @@
   function renderSonarHotspots() {
     if (!dom.sonarLayer) return;
     const hotspots = (state.sonar.hotspots || []).filter((spot) => spot.zone === state.currentZone);
-    dom.sonarLayer.innerHTML = hotspots.map((spot) => "<span class=\"sonar-hotspot " + spot.type + "\" style=\"--x:" + spot.x + "%;--y:" + spot.y + "%;--size:" + (spot.radius * 2) + "%;--delay:" + ((spot.bornAt || 0) % 1400) + "ms\"><i></i><b>" + HOTSPOT_TYPES[spot.type].name + "</b></span>").join("");
+    dom.sonarLayer.innerHTML = hotspots.map((spot) => { const remaining = Math.max(0, Math.ceil(((Number(spot.expiresAt) || Date.now()) - Date.now()) / 1000)); return `<span class="sonar-hotspot ${spot.type}" style="--x:${spot.x}%;--y:${spot.y}%;--size:${spot.radius * 2}%;--delay:${(spot.bornAt || 0) % 1400}ms"><i></i><b>${HOTSPOT_TYPES[spot.type].name}</b><small>范围 ${Math.round(spot.radius)}% · ${remaining}s</small></span>`; }).join("");
     emitTide("tide:sonar", { hotspots: hotspots.map((spot) => ({ id: spot.id, type: spot.type, x: spot.x, y: spot.y, radius: spot.radius })) });
   }
 
@@ -1335,7 +1585,7 @@
     if (boss.phase === 1) {
       const valid = Boolean(hotspot && (!boss.weakpointId || hotspot.id === boss.weakpointId || hotspot.id === boss.hotspotId));
       if (!valid) { renderBossHud(); return; }
-      boss.phaseProgress += autoScale * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3));
+      boss.phaseProgress += autoScale * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct, 0, 1));
       boss.expiresAt = now + 120000;
       emitTide("tide:impact", { type: "rare" });
       if (boss.phaseProgress >= getBossPhaseGoal(boss, 1)) {
@@ -1349,7 +1599,7 @@
     if (boss.phase === 2) {
       const valid = Boolean(hotspot || strongCatch);
       if (!valid) { renderBossHud(); return; }
-      boss.phaseProgress += autoScale * (strongCatch ? 1.5 : 1) * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3));
+      boss.phaseProgress += autoScale * (strongCatch ? 1.5 : 1) * (1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct, 0, 1));
       boss.expiresAt = now + 120000;
       if (boss.phaseProgress >= getBossPhaseGoal(boss, 2)) {
         boss.phase = 3;
@@ -1368,7 +1618,7 @@
         renderBossHud();
         return;
       }
-      boss.finisher += autoScale * Math.max(.25, 1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3));
+      boss.finisher += autoScale * Math.max(.25, 1 + clamp(getAllStatBonuses().bossPowerPct, 0, 3) + clamp(getExpeditionBonuses().bossProgressPct, 0, 1));
       boss.expiresAt = now + 120000;
       if (boss.finisher >= getBossPhaseGoal(boss, 3)) {
         createEquipment(Object.keys(EQUIPMENT_SLOTS)[Math.floor(Math.random() * Object.keys(EQUIPMENT_SLOTS).length)], "epic");
@@ -1610,7 +1860,7 @@
     const ultimateMult = (getLevel("sky_net") > 0 ? 2 : 1) * (getLevel("school_beacon") > 0 ? 2 : 1);
     const achievementMult = (1 + achievementBonus("amount")) * (1 + getAllStatBonuses().catchPct);
     const migrationMult = state.activeEvent && state.activeEvent.type === "migration" && state.activeEvent.until > Date.now() ? 2 : 1;
-    return wideBonus * ultimateMult * achievementMult * migrationMult * (1 + getGearSkillBonus("catchPct"));
+    return wideBonus * ultimateMult * achievementMult * migrationMult * (1 + getGearSkillBonus("catchPct")) * (1 + getExpeditionBonuses().catchPct);
   }
 
   function getDoubleChance() {
@@ -1622,11 +1872,11 @@
   }
 
   function getRareChance() {
-    return clamp(currentZone().rareChance + getLevel("sonar") * 0.03 + achievementBonus("rare") + getAllStatBonuses().rareChance + getEcologyModifiers().rareBonus + getGearSkillBonus("rareChance"), 0, 0.75);
+    return clamp(currentZone().rareChance + getLevel("sonar") * 0.03 + achievementBonus("rare") + getAllStatBonuses().rareChance + getEcologyModifiers().rareBonus + getGearSkillBonus("rareChance") + getExpeditionBonuses().rareChance, 0, 0.75);
   }
 
   function getLegendChance() {
-    return clamp(currentZone().legendaryChance + getLevel("golden_lure") * 0.01 + getAllStatBonuses().legendChance + getEcologyModifiers().legendBonus + getGearSkillBonus("legendChance"), 0, 0.25);
+    return clamp(currentZone().legendaryChance + getLevel("golden_lure") * 0.01 + getAllStatBonuses().legendChance + getEcologyModifiers().legendBonus + getGearSkillBonus("legendChance") + getExpeditionBonuses().legendChance, 0, 0.25);
   }
 
   function getSaleMultiplier(processed = false) {
@@ -1927,6 +2177,8 @@
       updateZoneProgress(caught);
       const ecology = state.ecology[state.currentZone];
       if (ecology && (hasRare || hasLegendary)) ecology.predatorPressure = clamp(ecology.predatorPressure - (hasLegendary ? 0.035 : 0.012) * caught, 0.02, 0.58);
+      const expeditionWeight = (source === "auto" ? 0.45 : 1) + (hotspot ? 0.35 : 0) + (hasRare ? 0.2 : 0) + (hasLegendary ? 0.35 : 0);
+      advanceExpedition(expeditionWeight, { source, hotspot: Boolean(hotspot), hasRare, hasLegendary });
       advanceBossProgress(hotspotHit, source, castPointPercent(), { hasRare, hasLegendary, caught });
     }
 
@@ -2192,7 +2444,7 @@
         unlockedZones: Array.isArray(saved.unlockedZones) && saved.unlockedZones.length ? saved.unlockedZones : ["shallow"]
       };
 
-      state.version = 6;
+      state.version = 7;
       state.ascension = {
         ...base.ascension,
         ...(saved.ascension || {}),
@@ -2219,6 +2471,25 @@
         item.level = Math.min(10, Number(item.level) || 1);
       });
       state.sonar = { ...base.sonar, ...(saved.sonar || {}), hotspots: Array.isArray((saved.sonar || {}).hotspots) ? saved.sonar.hotspots : [], history: Array.isArray((saved.sonar || {}).history) ? saved.sonar.history : [] };
+      const savedExpedition = saved.expedition && typeof saved.expedition === "object" ? saved.expedition : {};
+      state.expedition = {
+        ...base.expedition,
+        ...savedExpedition,
+        active: savedExpedition.active && typeof savedExpedition.active === "object" ? {
+          ...savedExpedition.active,
+          progress: Number(savedExpedition.active.progress) || 0,
+          requiredCasts: Number(savedExpedition.active.requiredCasts) || 1,
+          thresholds: Array.isArray(savedExpedition.active.thresholds) ? savedExpedition.active.thresholds.map(Number) : [],
+          nodeIndex: Number(savedExpedition.active.nodeIndex) || 0,
+          pendingNode: savedExpedition.active.pendingNode || null,
+          bonuses: { goldPct: 0, alloy: 0, crystals: 0, catchPct: 0, rareChance: 0, legendChance: 0, bossProgressPct: 0, ...(savedExpedition.active.bonuses || {}) },
+          stats: { casts: 0, manual: 0, auto: 0, hotspots: 0, rare: 0, legendary: 0, ...(savedExpedition.active.stats || {}) }
+        } : null,
+        log: Array.isArray(savedExpedition.log) ? savedExpedition.log.slice(-12) : [],
+        completed: Number(savedExpedition.completed) || 0,
+        bestScore: Number(savedExpedition.bestScore) || 0,
+        crewMode: EXPEDITION_CREW_MODES[savedExpedition.crewMode] ? savedExpedition.crewMode : "balanced"
+      };
       state.ecology = Object.fromEntries(zones.map((zone) => {
         const source = { ...(base.ecology[zone.id] || {}), ...((saved.ecology || {})[zone.id] || {}) };
         return [zone.id, {
@@ -2402,8 +2673,18 @@
     lastRenderedHold = hold;
     dom.incomeText.textContent = getAutoRate() > 0 ? `${formatNumber(income)} / 秒` : "需拖网船";
     dom.zoneName.textContent = zone.name;
-    dom.castPrompt.textContent = getLevel("sky_net") > 0 ? "天罗地网 · 全屏撒网" : "点击海面撒网";
-    dom.castEstimate.textContent = `每网约 ${low}–${high} 条鱼`;
+    const expedition = state.expedition?.active;
+    const expeditionRoute = expedition ? getExpeditionRoute(expedition.routeId) : null;
+    const expeditionRatio = getExpeditionProgressRatio(expedition);
+    if (expedition) {
+      dom.castPrompt.textContent = expedition.pendingNode ? "航线节点待处理" : expedition.expired ? "航线抵达 · 等待返航" : `航行中 · ${expeditionRoute.name}`;
+      dom.castEstimate.textContent = expedition.pendingNode ? `节点：${expedition.pendingNode.title} · ${Math.round(expeditionRatio * 100)}%` : `航程 ${Math.round(expeditionRatio * 100)}% · ${formatDuration(getExpeditionTimeRemaining(expedition))}`;
+      dom.seaTip.textContent = expedition.pendingNode ? "打开深渊航线完成节点选择，剩余航程会暂停推进。" : "在声呐热点内落网，航线进度与奖励会更快累积。";
+    } else {
+      dom.castPrompt.textContent = getLevel("sky_net") > 0 ? "天罗地网 · 全屏撒网" : "点击海面撒网";
+      dom.castEstimate.textContent = `每网约 ${low}–${high} 条鱼`;
+      dom.seaTip.textContent = "每次撒网都会将鱼存入鱼舱，售出后可升级舰载协议。";
+    }
     dom.emptyRateText.textContent = `${Math.round(getEmptyChance() * 100)}%`;
     dom.rareRateText.textContent = `+${Math.round(getRareChance() * 100)}%`;
     dom.doubleRateText.textContent = `${Math.round(getDoubleChance() * 100)}%`;
@@ -2422,6 +2703,11 @@
     const contractReady = state.contracts.tasks.some((task) => (state.contracts.progress[task.id] || 0) >= task.target && !state.contracts.claimed[task.id]);
     dom.contractsButton.classList.toggle("has-reward", contractReady);
     dom.bossButton.classList.toggle("has-encounter", Boolean(state.boss && state.boss.zone === state.currentZone));
+    if (dom.expeditionButton && dom.expeditionStatus) {
+      const expeditionAlert = Boolean(expedition?.pendingNode || expedition?.expired);
+      dom.expeditionStatus.textContent = expedition ? (expedition.pendingNode ? "节点待命" : expedition.expired ? "可返航" : `${Math.round(expeditionRatio * 100)}%`) : "待部署";
+      dom.expeditionButton.classList.toggle("has-reward", expeditionAlert);
+    }
     refreshProgressTip();
   }
 
@@ -2693,7 +2979,47 @@
       footer = `<button class="modal-button primary" type="button" data-modal-close>${boss ? "返回海面锁定声呐" : "继续捕捞"}</button>`;
     }
 
-    if (activeModal.type === "profile") {
+    if (activeModal.type === "expedition") {
+      const active = state.expedition?.active;
+      const crew = getExpeditionCrew();
+      title = active ? getExpeditionRoute(active.routeId).name : "深渊航线";
+      subtitle = active ? `${getExpeditionRoute(active.routeId).tag} · 船员：${crew.name} · ${active.pendingNode ? "节点待处理" : active.expired ? "已抵达返航点" : "航线持续记录中"}` : `已完成 ${state.expedition.completed} 次航行 · 最高航程得分 ${formatNumber(state.expedition.bestScore)}。选择航线与船员策略后即可出发。`;
+      if (!active) {
+        const routeCards = EXPEDITION_ROUTES.map((route) => {
+          const unlocked = getExpeditionRouteUnlocked(route);
+          const preview = getExpeditionRewardPreview(route, route.requiredCasts, false);
+          return `<article class="expedition-route-card ${unlocked ? "" : "locked"}" style="--route-accent:${route.accent}">
+            <div class="expedition-route-top"><span>${route.icon}</span><div><small>${route.tag} · ${route.risk}</small><h3>${route.name}</h3></div><b>${formatDuration(route.duration)}</b></div>
+            <p>${route.description}</p>
+            <div class="expedition-card-stats"><span><small>推进节点</small><strong>${route.nodeCount}</strong></span><span><small>完整航程</small><strong>${route.requiredCasts} 次落网</strong></span><span><small>基础奖励</small><strong>${formatNumber(preview.gold)} 金币</strong></span></div>
+            <div class="expedition-card-foot"><span>${unlocked ? "可选择" : `需解锁 ${route.requiredZones} 个海域`}</span><button class="modal-button primary" type="button" data-expedition-route="${route.id}" ${unlocked ? "" : "disabled"}>部署航线</button></div>
+          </article>`;
+        }).join("");
+        const crewCards = Object.entries(EXPEDITION_CREW_MODES).map(([id, mode]) => `<button class="crew-option ${state.expedition.crewMode === id ? "active" : ""}" type="button" data-expedition-crew="${id}"><span>${mode.icon}</span><div><strong>${mode.name}</strong><small>${mode.description}</small></div><b>${state.expedition.crewMode === id ? "已选择" : "选择"}</b></button>`).join("");
+        body = `<div class="expedition-hero"><span>⌁</span><div><small>长期航行协议</small><h3>让每一次撒网都有航线目标</h3><p>路线会持续记录手动落网、热点命中和首领辅助。抵达节点时暂停推进，选择一条明确收益；提前返航按航程结算。</p></div></div><h3 class="modal-subheading">船员策略</h3><div class="crew-options">${crewCards}</div><h3 class="modal-subheading">选择航线</h3><div class="expedition-routes">${routeCards}</div>`;
+        footer = `<button class="modal-button" type="button" data-modal-close>暂时不出发</button>`;
+      } else {
+        const route = getExpeditionRoute(active.routeId);
+        const progress = getExpeditionProgressRatio(active);
+        const remaining = active.expired ? "等待返航" : formatDuration(getExpeditionTimeRemaining(active));
+        const pending = active.pendingNode;
+        const bonusEntries = Object.entries(active.bonuses || {}).filter(([, value]) => Number(value) > 0);
+        const earlyPreview = getExpeditionRewardPreview(route, active.progress, true, active.expired);
+        const log = (state.expedition.log || []).slice(-4).reverse();
+        const pendingMarkup = pending ? `<section class="expedition-node-card">
+          <div class="expedition-node-head"><span>${pending.icon}</span><div><small>航线节点 ${pending.index + 1} / ${active.thresholds.length}</small><h3>${pending.title}</h3><p>${pending.description}</p></div></div>
+          <div class="expedition-choice-grid">${pending.choices.map((choice) => `<button class="expedition-choice" type="button" data-expedition-choice="${choice.id}"><strong>${choice.label}</strong><small>${choice.result}</small></button>`).join("")}</div>
+        </section>` : `<section class="expedition-clear-card"><span>${active.expired ? "◷" : "⌖"}</span><div><strong>${active.expired ? "已抵达返航点" : "声呐航线稳定"}</strong><p>${active.expired ? "结算本次航程，领取金币、合金与航线得分。" : "继续在热点内落网，抵达下一节点后会出现两条明确选择。"}</p></div></section>`;
+        const logMarkup = log.length ? `<div class="expedition-log">${log.map((entry) => `<div><small>${new Date(entry.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</small><strong>${entry.title}</strong><span>${entry.choice} · ${entry.result}</span></div>`).join("")}</div>` : `<p class="muted">还没有航线记录。每次节点选择都会写入航行日志。</p>`;
+        body = `<div class="expedition-active-head"><div class="expedition-route-emblem" style="--route-accent:${route.accent}">${route.icon}</div><div><small>${route.tag} · ${crew.name}</small><h3>${route.name}</h3><p>${route.description}</p></div><b>${remaining}</b></div>
+          <div class="expedition-progress-large"><i style="width:${Math.round(progress * 100)}%"></i><span>${Math.round(progress * 100)}%</span></div>
+          <div class="expedition-metrics"><span><small>推进值</small><strong>${Math.round(active.progress)} / ${active.requiredCasts}</strong></span><span><small>热点命中</small><strong>${Math.round(active.stats.hotspots)}</strong></span><span><small>稀有 / 传说</small><strong>${Math.round(active.stats.rare)} / ${Math.round(active.stats.legendary)}</strong></span><span><small>预计返航</small><strong>${formatNumber(earlyPreview.gold)} 金币</strong></span></div>
+          ${pendingMarkup}
+          <div class="expedition-bonus-row"><small>当前航线加成</small><span>${bonusEntries.length ? bonusEntries.map(([key, value]) => key === "alloy" || key === "crystals" ? `${key === "alloy" ? "合金" : "结晶"} +${Math.round(value)}` : key === "goldPct" ? `金币 +${Math.round(value * 100)}%` : `${key === "catchPct" ? "捕获" : key === "rareChance" ? "稀有" : key === "legendChance" ? "传说" : "首领"} +${(Number(value) * 100).toFixed(1)}%`).join(" · ") : "尚无节点加成"}</span></div>
+          <h3 class="modal-subheading">航行日志</h3>${logMarkup}`;
+        footer = `<button class="modal-button" type="button" data-modal-close>返回海域</button><button class="modal-button primary" type="button" data-expedition-return ${pending || active.progress <= 0 ? "disabled" : ""}>${active.expired ? `结算航线 · ${formatNumber(earlyPreview.gold)} 金币` : `提前返航 · 约 ${formatNumber(earlyPreview.gold)} 金币`}</button>`;
+      }
+    }    if (activeModal.type === "profile") {
       const configured = Boolean(window.LeaderboardBridge?.isConfigured?.());
       title = "调查员档案";
       subtitle = configured ? "档案用于在线排行和成绩同步，不会上传完整本地存档。" : "当前为离线档案模式；配置 Supabase 后即可参与在线排行。";
@@ -2959,6 +3285,7 @@
     if (key === "c") { openModal("encyclopedia"); return true; }
     if (key === "g") { openModal("equipment"); return true; }
     if (key === "q") { openModal("contracts"); return true; }
+    if (key === "x") { openModal("expedition"); return true; }
     if (key === "b") { openModal("boss"); return true; }
     if (key === "l") { openLeaderboard(); return true; }
     if (key === "p") { openModal("profile"); return true; }
@@ -3079,6 +3406,7 @@
     dom.creditsButton.addEventListener("click", () => openModal("credits"));
     dom.equipmentButton.addEventListener("click", () => openModal("equipment"));
     dom.contractsButton.addEventListener("click", () => openModal("contracts"));
+    dom.expeditionButton?.addEventListener("click", () => openModal("expedition"));
     dom.bossButton.addEventListener("click", () => openModal("boss"));
     dom.leaderboardButton.addEventListener("click", openLeaderboard);
     dom.profileButton.addEventListener("click", () => openModal("profile"));
@@ -3128,9 +3456,17 @@
       const boardButton = event.target.closest("[data-leaderboard-board]");
       const refreshLeaderboardButton = event.target.closest("[data-leaderboard-refresh]");
       const bossToggle = event.target.closest("[data-boss-toggle]");
+      const expeditionRouteButton = event.target.closest("[data-expedition-route]");
+      const expeditionCrewButton = event.target.closest("[data-expedition-crew]");
+      const expeditionChoiceButton = event.target.closest("[data-expedition-choice]");
+      const expeditionReturnButton = event.target.closest("[data-expedition-return]");
       if (closeButton) closeModal();
       if (claimButton) claimOffline();
       if (contractButton) claimContract(contractButton.dataset.claimContract);
+      if (expeditionRouteButton) startExpedition(expeditionRouteButton.dataset.expeditionRoute);
+      if (expeditionCrewButton) { state.expedition.crewMode = expeditionCrewButton.dataset.expeditionCrew; renderModal(); saveGame(true); }
+      if (expeditionChoiceButton) resolveExpeditionChoice(expeditionChoiceButton.dataset.expeditionChoice);
+      if (expeditionReturnButton) finishExpedition(!state.expedition?.active?.expired);
       if (unlockButton) unlockZone(unlockButton.dataset.unlockZone);
       if (researchButton) buyResearch(researchButton.dataset.research);
       if (ascendButton) performAscension();      if (tabButton) { state.ui.equipmentTab = tabButton.dataset.equipTab; renderModal(); }
