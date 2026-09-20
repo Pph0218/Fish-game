@@ -790,6 +790,20 @@
     city: { name: "观测者扫描", icon: "⌬", description: "观测者会记录行动模式，连续使用同一种破甲方式会被削弱。", hints: ["追踪模式正常", "热点与高稀有鱼必须交替", "终结窗口稳定"] },
     void: { name: "归墟反转", icon: "✹", description: "归墟会削弱自动撒网并延长终结目标，手动落网是主要输出。", hints: ["自动贡献降到 10%", "自动贡献降到 10%", "终结目标增加 2 次"] }
   };
+  const JOURNAL_MISSIONS = [
+    { id: "first_cast", title: "第一张网", description: "完成 1 次撒网", target: 1, progress: () => state.totalCasts, reward: { gold: 100 } },
+    { id: "first_sale", title: "第一桶金", description: "出售一批渔获", target: 1, progress: () => state.totalSold, reward: { gold: 120, alloy: 1 } },
+    { id: "reef_route", title: "离开浅滩", description: "解锁近海礁区", target: 1, progress: () => isZoneUnlocked("reef") ? 1 : 0, reward: { gold: 300, alloy: 2 } },
+    { id: "first_hotspot", title: "锁定声呐", description: "命中 1 次声呐热点", target: 1, progress: () => (state.sonar.history || []).length, reward: { gold: 180, crystals: 1 } },
+    { id: "first_rare", title: "稀有回声", description: "捕获 1 条稀有鱼", target: 1, progress: () => state.rareCaught, reward: { alloy: 3, crystals: 1 } },
+    { id: "first_legendary", title: "金色航迹", description: "捕获 1 条传说鱼", target: 1, progress: () => state.legendaryCaught, reward: { gold: 500, crystals: 2 } },
+    { id: "first_gear", title: "舰载装备", description: "获得 1 件装备", target: 1, progress: () => Object.keys(state.equipment.owned || {}).length, reward: { alloy: 3 } },
+    { id: "first_route", title: "深渊启航", description: "完成 1 次深渊航线", target: 1, progress: () => Number(state.expedition.completed) || 0, reward: { gold: 800, alloy: 4, crystals: 1 } },
+    { id: "first_boss", title: "巨兽猎手", description: "击败 1 个区域首领", target: 1, progress: () => getTotalBossDefeated(), reward: { gold: 1200, crystals: 3, alloy: 4 } },
+    { id: "first_forge", title: "巨兽熔铸", description: "熔铸 1 件首领专属装备", target: 1, progress: () => Object.values(state.equipment.owned || {}).filter((item) => getEquipmentArchetype(item.slot, item).bossOnly).length, reward: { crystals: 4, alloy: 6 } },
+    { id: "half_codex", title: "生物图谱", description: "发现 24 种鱼类", target: 24, progress: () => getDiscoveredCount(), reward: { gold: 2000, crystals: 4 } },
+    { id: "first_ascension", title: "深渊回声", description: "完成 1 次深渊跃迁", target: 1, progress: () => Number(state.ascension?.count) || 0, reward: { crystals: 8, alloy: 8 } }
+  ];
   function createDefaultState() {
     const upgrades = {};
     allNodes.forEach((node) => { upgrades[node.id] = 0; });
@@ -838,7 +852,8 @@
       crew: { assigned: ["runi"], lastOfflineGain: 0 },
       ecology: Object.fromEntries(zones.map((zone) => [zone.id, { preyDensity: 1, predatorPressure: 0.05, schoolMorale: 0.92, predatorCount: 0, lastUpdatedAt: Date.now() }])),
       codexMastery: {},
-      contracts: { date: "", tasks: [], progress: {}, claimed: {}, streak: 0 },
+      contracts: { date: "", tasks: [], progress: {}, claimed: {}, streak: 0, weekKey: "", weeklyTasks: [], weeklyProgress: {}, weeklyClaimed: {}, weeklyStreak: 0 },
+      journal: { claimed: {} },
       zoneProgress: Object.fromEntries(zones.map((zone) => [zone.id, { caught: 0, bossCharge: 0, bossDefeated: 0, mastery: 0 }])),
       profile: null,
       profileSetupSeen: false,
@@ -846,7 +861,7 @@
       bossTutorialSeen: false,
       bossMaterials: { sonarShard: 0, armorPlate: 0, voidHeart: 0 },
       bossRecords: {},
-      ui: { keyGuideCollapsed: false, guideSeen: false, expandedBranch: "net_mastery", expandedGroup: 0, equipmentTab: "equipped", bossBannerExpanded: false, leftPanelOpen: false, rightPanelOpen: false, leftPanelPinned: false, rightPanelPinned: false }
+      ui: { keyGuideCollapsed: false, guideSeen: false, contractTab: "daily", expandedBranch: "net_mastery", expandedGroup: 0, equipmentTab: "equipped", bossBannerExpanded: false, leftPanelOpen: false, rightPanelOpen: false, leftPanelPinned: false, rightPanelPinned: false }
     };
   }
 
@@ -952,6 +967,7 @@
     });
     const item = createEquipment(recipe.slot, "legendary", recipe.archetype);
     const archetype = getEquipmentArchetype(recipe.slot, item);
+    recordContract("forge", 1);
     showToast("巨兽熔铸成功", `${archetype.name}已加入舰载装备，拥有独立传说被动。`, "gold");
     updateAllUI();
     saveGame(true);
@@ -1532,8 +1548,70 @@
     state.contracts.tasks = pool.sort((a, b) => seededValue(date + a.id) - seededValue(date + b.id)).slice(0, 3);
   }
 
+  function getLocalWeekKey() {
+    const now = new Date();
+    const day = (now.getDay() + 6) % 7;
+    now.setDate(now.getDate() - day);
+    return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
+  }
+
+  function ensureWeeklyContracts() {
+    const weekKey = getLocalWeekKey();
+    if (state.contracts.weekKey === weekKey && state.contracts.weeklyTasks.length) return;
+    state.contracts.weekKey = weekKey;
+    state.contracts.weeklyProgress = {};
+    state.contracts.weeklyClaimed = {};
+    const pool = [
+      { id: "week_fish", type: "fish", title: "本周累计捕获鱼类", target: 1200, reward: { crystals: 18, alloy: 12 } },
+      { id: "week_sell", type: "sell", title: "本周出售渔获收益", target: 120000 * Math.max(1, state.unlockedZones.length), reward: { crystals: 20, alloy: 14 } },
+      { id: "week_hotspot", type: "hotspot", title: "本周命中声呐热点", target: 18, reward: { crystals: 22, alloy: 16 } },
+      { id: "week_expedition", type: "expedition", title: "本周推进航线节点", target: 12, reward: { crystals: 24, alloy: 18 } },
+      { id: "week_boss", type: "boss", title: "本周击败巨兽信号", target: 2, reward: { crystals: 30, alloy: 20 } },
+      { id: "week_forge", type: "forge", title: "本周完成巨兽熔铸", target: 1, reward: { crystals: 28, alloy: 24 } }
+    ];
+    state.contracts.weeklyTasks = pool.sort((a, b) => seededValue(weekKey + a.id) - seededValue(weekKey + b.id)).slice(0, 3);
+  }
+
+  function recordWeekly(type, amount = 1) {
+    ensureWeeklyContracts();
+    state.contracts.weeklyTasks.forEach((task) => {
+      if (task.type !== type) return;
+      state.contracts.weeklyProgress[task.id] = Math.min(task.target, (state.contracts.weeklyProgress[task.id] || 0) + amount);
+    });
+  }
+
+  function claimWeeklyContract(id) {
+    ensureWeeklyContracts();
+    const task = state.contracts.weeklyTasks.find((item) => item.id === id);
+    if (!task || state.contracts.weeklyClaimed[id]) return;
+    if ((state.contracts.weeklyProgress[id] || 0) < task.target) return;
+    state.contracts.weeklyClaimed[id] = true;
+    state.ascension.crystals += Number(task.reward.crystals || 0);
+    state.equipment.alloy += Number(task.reward.alloy || 0);
+    state.equipment.rarePity = Math.min(100, (Number(state.equipment.rarePity) || 0) + 8);
+    renderModal(); saveGame(true);
+    showToast("周常奖励已领取", `获得 ${task.reward.crystals} 结晶、${task.reward.alloy} 合金与装备保底进度。`, "gold");
+  }
+
+  function getJournalMissionProgress(mission) {
+    try { return Number(mission?.progress?.()) || 0; } catch { return 0; }
+  }
+
+  function claimJournalMission(id) {
+    const mission = JOURNAL_MISSIONS.find((item) => item.id === id);
+    if (!mission || state.journal.claimed[id]) return;
+    if (getJournalMissionProgress(mission) < mission.target) return;
+    state.journal.claimed[id] = true;
+    state.gold += Number(mission.reward.gold || 0);
+    state.totalGoldEarned += Number(mission.reward.gold || 0);
+    state.equipment.alloy += Number(mission.reward.alloy || 0);
+    state.ascension.crystals += Number(mission.reward.crystals || 0);
+    renderModal(); updateAllUI(); saveGame(true);
+    showToast("航海日志已盖章", `${mission.title}奖励已领取。`, "gold");
+  }
   function recordContract(type, amount = 1) {
     if (!state.contracts.tasks.length) ensureDailyContracts();
+    recordWeekly(type, amount);
     state.contracts.tasks.forEach((task) => {
       if (task.type !== type) return;
       state.contracts.progress[task.id] = Math.min(task.target, (state.contracts.progress[task.id] || 0) + amount);
@@ -2786,7 +2864,8 @@
         record.count = Number(record.count) || 0;
         record.stars = Number(record.stars) || (record.count >= 10000 ? 3 : record.count >= 1000 ? 2 : record.count >= 100 ? 1 : 0);
       });
-      state.contracts = { ...base.contracts, ...(saved.contracts || {}), tasks: Array.isArray((saved.contracts || {}).tasks) ? saved.contracts.tasks : [], progress: (saved.contracts || {}).progress || {}, claimed: (saved.contracts || {}).claimed || {} };
+      state.contracts = { ...base.contracts, ...(saved.contracts || {}), tasks: Array.isArray((saved.contracts || {}).tasks) ? saved.contracts.tasks : [], progress: (saved.contracts || {}).progress || {}, claimed: (saved.contracts || {}).claimed || {}, weeklyTasks: Array.isArray((saved.contracts || {}).weeklyTasks) ? saved.contracts.weeklyTasks : [], weeklyProgress: (saved.contracts || {}).weeklyProgress || {}, weeklyClaimed: (saved.contracts || {}).weeklyClaimed || {} };
+      state.journal = { ...base.journal, ...(saved.journal || {}), claimed: (saved.journal || {}).claimed || {} };
       state.zoneProgress = Object.fromEntries(zones.map((zone) => {
         const source = { ...base.zoneProgress[zone.id], ...((saved.zoneProgress || {})[zone.id] || {}) };
         return [zone.id, { caught: Number(source.caught) || 0, bossCharge: Number(source.bossCharge) || 0, bossDefeated: Number(source.bossDefeated) || 0, mastery: Number(source.mastery) || 0 }];
@@ -3222,25 +3301,47 @@
 
     if (activeModal.type === "contracts") {
       ensureDailyContracts();
-      const completeCount = state.contracts.tasks.filter((task) => (state.contracts.progress[task.id] || 0) >= task.target).length;
-      title = "每日深海委托";
-      subtitle = `${state.contracts.date} · 已完成 ${completeCount} / ${state.contracts.tasks.length}，奖励每日只能领取一次。`;
-      body = `<div class="contract-grid">${state.contracts.tasks.map((task) => {
-        const progress = Math.min(task.target, state.contracts.progress[task.id] || 0);
-        const ratio = task.target ? progress / task.target : 0;
-        const claimed = Boolean(state.contracts.claimed[task.id]);
-        const ready = progress >= task.target && !claimed;
-        return `<article class="contract-card ${ready ? "ready" : ""} ${claimed ? "claimed" : ""}">
-          <div class="contract-card-head"><span class="contract-glyph">${task.type === "boss" ? "☠" : task.type === "hotspot" ? "◉" : task.type === "expedition" ? "⌁" : "▤"}</span><div><small>深海委托</small><h3>${task.title}</h3></div></div>
-          <div class="contract-progress"><i style="width:${Math.round(ratio * 100)}%"></i></div>
-          <div class="contract-progress-copy"><span>${formatNumber(progress)} / ${formatNumber(task.target)}</span><strong>${claimed ? "已领取" : ready ? "可领取" : `${Math.round(ratio * 100)}%`}</strong></div>
-          <div class="contract-reward"><span>结晶 +${task.reward.crystals}</span><span>合金 +${task.reward.alloy}</span></div>
-          <button class="modal-button ${ready ? "primary" : ""}" type="button" data-claim-contract="${task.id}" ${ready ? "" : "disabled"}>${claimed ? "已结算" : ready ? "领取奖励" : "进行中"}</button>
-        </article>`;
-      }).join("")}</div><p class="muted">委托按设备本地日期生成。完成奖励还会推进装备保底进度。</p>`;
+      ensureWeeklyContracts();
+      const tab = state.ui.contractTab || "daily";
+      const tabBar = `<div class="contract-tabs"><button type="button" class="${tab === "daily" ? "active" : ""}" data-contract-tab="daily">每日委托</button><button type="button" class="${tab === "weekly" ? "active" : ""}" data-contract-tab="weekly">每周目标</button><button type="button" class="${tab === "journal" ? "active" : ""}" data-contract-tab="journal">航海日志</button></div>`;
+      let panel = "";
+      if (tab === "weekly") {
+        const completeCount = state.contracts.weeklyTasks.filter((task) => (state.contracts.weeklyProgress[task.id] || 0) >= task.target).length;
+        title = "每周深海目标";
+        subtitle = `${state.contracts.weekKey} 起 · 已完成 ${completeCount} / ${state.contracts.weeklyTasks.length}`;
+        panel = `<div class="contract-grid">${state.contracts.weeklyTasks.map((task) => { const progress = Math.min(task.target, state.contracts.weeklyProgress[task.id] || 0); const ratio = task.target ? progress / task.target : 0; const claimed = Boolean(state.contracts.weeklyClaimed[task.id]); const ready = progress >= task.target && !claimed; return `<article class="contract-card weekly ${ready ? "ready" : ""} ${claimed ? "claimed" : ""}"><div class="contract-card-head"><span class="contract-glyph">◆</span><div><small>周常目标</small><h3>${task.title}</h3></div></div><div class="contract-progress"><i style="width:${Math.round(ratio * 100)}%"></i></div><div class="contract-progress-copy"><span>${formatNumber(progress)} / ${formatNumber(task.target)}</span><strong>${claimed ? "已领取" : ready ? "可领取" : `${Math.round(ratio * 100)}%`}</strong></div><div class="contract-reward"><span>结晶 +${task.reward.crystals}</span><span>合金 +${task.reward.alloy}</span></div><button class="modal-button ${ready ? "primary" : ""}" type="button" data-claim-weekly="${task.id}" ${ready ? "" : "disabled"}>${claimed ? "已结算" : ready ? "领取奖励" : "进行中"}</button></article>`; }).join("")}</div><p class="muted">每周目标按设备本地日期生成，周一重置；奖励包含装备保底进度。</p>`;
+      } else if (tab === "journal") {
+        const claimedCount = Object.keys(state.journal.claimed || {}).length;
+        title = "航海日志";
+        subtitle = `已完成 ${claimedCount} / ${JOURNAL_MISSIONS.length} 个航程里程碑`;
+        panel = `<div class="journal-list">${JOURNAL_MISSIONS.map((mission) => { const progress = Math.min(mission.target, getJournalMissionProgress(mission)); const ratio = mission.target ? progress / mission.target : 0; const claimed = Boolean(state.journal.claimed[mission.id]); const ready = progress >= mission.target && !claimed; const reward = [mission.reward.gold ? `${formatNumber(mission.reward.gold)} 金币` : "", mission.reward.alloy ? `${mission.reward.alloy} 合金` : "", mission.reward.crystals ? `${mission.reward.crystals} 结晶` : ""].filter(Boolean).join(" · "); return `<article class="journal-card ${ready ? "ready" : ""} ${claimed ? "claimed" : ""}"><div><small>航程里程碑</small><h3>${mission.title}</h3><p>${mission.description}</p></div><div class="journal-progress"><i style="width:${Math.round(ratio * 100)}%"></i><span>${formatNumber(progress)} / ${formatNumber(mission.target)}</span></div><div class="journal-reward">${reward}</div><button class="modal-button ${ready ? "primary" : ""}" type="button" data-claim-journal="${mission.id}" ${ready ? "" : "disabled"}>${claimed ? "已盖章" : ready ? "领取奖励" : "未完成"}</button></article>`; }).join("")}</div>`;
+      } else {
+        const completeCount = state.contracts.tasks.filter((task) => (state.contracts.progress[task.id] || 0) >= task.target).length;
+        title = "每日深海委托";
+        subtitle = `${state.contracts.date} · 已完成 ${completeCount} / ${state.contracts.tasks.length}，奖励每日只能领取一次。`;
+        panel = `<div class="contract-grid">${state.contracts.tasks.map((task) => { const progress = Math.min(task.target, state.contracts.progress[task.id] || 0); const ratio = task.target ? progress / task.target : 0; const claimed = Boolean(state.contracts.claimed[task.id]); const ready = progress >= task.target && !claimed; return `<article class="contract-card ${ready ? "ready" : ""} ${claimed ? "claimed" : ""}"><div class="contract-card-head"><span class="contract-glyph">${task.type === "boss" ? "☠" : task.type === "hotspot" ? "◉" : task.type === "expedition" ? "⌁" : "▤"}</span><div><small>深海委托</small><h3>${task.title}</h3></div></div><div class="contract-progress"><i style="width:${Math.round(ratio * 100)}%"></i></div><div class="contract-progress-copy"><span>${formatNumber(progress)} / ${formatNumber(task.target)}</span><strong>${claimed ? "已领取" : ready ? "可领取" : `${Math.round(ratio * 100)}%`}</strong></div><div class="contract-reward"><span>结晶 +${task.reward.crystals}</span><span>合金 +${task.reward.alloy}</span></div><button class="modal-button ${ready ? "primary" : ""}" type="button" data-claim-contract="${task.id}" ${ready ? "" : "disabled"}>${claimed ? "已结算" : ready ? "领取奖励" : "进行中"}</button></article>`; }).join("")}</div><p class="muted">委托按设备本地日期生成。完成奖励还会推进装备保底进度。</p>`;
+      }
+      body = tabBar + panel;
       footer = `<button class="modal-button" type="button" data-modal-close>关闭</button>`;
     }
-
+    if (activeModal.type === "ecology") {
+      const ecology = getEcologyModifiers(state.currentZone);
+      const zone = currentZone();
+      title = "生态扫描原理";
+      subtitle = `${zone.name} · 所有概率修正都会在这里公开显示，不存在隐藏惩罚。`;
+      body = `<div class="ecology-detail">
+        <div class="ecology-detail-hero"><span>◉</span><div><small>当前海域生态</small><h3>${zone.name}</h3><p>生态模拟每 5 秒更新一次。捕食、密度和士气会轻微影响普通、稀有和传说概率。</p></div></div>
+        <div class="ecology-detail-grid">
+          <span><small>鱼群密度</small><strong>${Math.round(ecology.preyDensity * 100)}%</strong><em>影响普通鱼群稳定度</em></span>
+          <span><small>捕食压力</small><strong>${Math.round(ecology.predatorPressure * 100)}%</strong><em>提高稀有/传说，降低普通密度</em></span>
+          <span><small>鱼群士气</small><strong>${Math.round(ecology.schoolMorale * 100)}%</strong><em>影响稀有率修正</em></span>
+          <span><small>海域熟练度</small><strong>${formatNumber(state.zoneProgress?.[state.currentZone]?.mastery || 0)}%</strong><em>提供额外稀有与传说修正</em></span>
+        </div>
+        <div class="ecology-formula"><strong>当前实际修正</strong><span>普通鱼数量倍率 ×${ecology.normalMult.toFixed(2)}</span><span>稀有率 +${(ecology.rareBonus * 100).toFixed(1)}%</span><span>传说率 +${(ecology.legendBonus * 100).toFixed(1)}%</span></div>
+        <p class="muted">当前海域基础稀有率 ${Math.round(zone.rareChance * 100)}%，基础传说率 ${(zone.legendaryChance * 100).toFixed(1)}%。生态修正会与天赋、装备、热点和航线效果相加，并受最终概率上限约束。</p>
+      </div>`;
+      footer = `<button class="modal-button primary" type="button" data-modal-close>返回海域</button>`;
+    }
     if (activeModal.type === "bossTutorial") {
       title = "巨兽猎杀指南";
       subtitle = "首领战分为三个阶段，任何失误都不会清空已完成进度。";
@@ -3333,7 +3434,7 @@
       body = `<div class="guide-hero"><span>⚓</span><div><small>舰长第一次出航</small><h3>先撒网，再把渔获变成永久成长</h3><p>金币用于解锁海域和升级天赋；图鉴、装备、科研、首领奖杯和航线等级会在长期保留。</p></div></div>
         <div class="guide-steps">
           <article class="guide-step"><span>01</span><div><small>基础操作</small><h3>点击海面撒网</h3><p>点击海面任意位置、底部「撒网」或按空格即可捕鱼。鱼舱装满后先出售，否则新渔获会停止进入鱼舱。</p><ul><li>金色、青色或紫色脉冲圈是声呐热点。</li><li>把网落在热点内会获得额外数量或稀有率。</li><li>空格可连续撒网，手机点海面即可。</li></ul></div></article>
-          <article class="guide-step"><span>02</span><div><small>成长循环</small><h3>出售 → 升级 → 解锁海域</h3><p>左侧「母港交易」出售渔获，底部「深潜协议」升级永久天赋。金币足够后点击顶部海域标签解锁新海域。</p><ul><li>普通鱼是稳定收入，稀有鱼和传说鱼是主要爆发。</li><li>海域越深，鱼价和稀有率越高，但空网率也会变化。</li><li>不要只堆捕捞，自动化、售价和首领天赋同样重要。</li></ul></div></article>
+          <article class="guide-step"><span>02</span><div><small>成长循环</small><h3>出售 → 升级 → 解锁海域</h3><p>左侧「母港交易」出售渔获，底部「深潜协议」升级永久天赋。金币足够后点击顶部海域标签解锁新海域。</p><ul><li>普通鱼是稳定收入，稀有鱼和传说鱼是主要爆发。</li><li>海域越深，鱼价和稀有率越高，但空网率也会变化。</li><li>不要只堆捕捞，自动化、售价和首领天赋同样重要。</li><li>点击顶部「生态扫描」可以查看当前概率修正的来源。</li></ul></div></article>
           <article class="guide-step"><span>03</span><div><small>长期航线</small><h3>深渊航线与节点选择</h3><p>底部「深渊航线」可部署 10–20 分钟航程。成功撒网、命中热点和捕获高稀有鱼都会推进航程。</p><ul><li>抵达节点后会暂停推进，选择金币、合金、结晶、装备保底或首领增益。</li><li>航程等级永久提高全收益、首领奖励和热点持续时间。</li><li>自动撒网只能获得约 45% 的航程推进。</li><li>船员编制提供全局被动，离线时也会按时间推进当前航线。</li></ul></div></article>
           <article class="guide-step"><span>04</span><div><small>首领战</small><h3>三阶段破坏巨兽</h3><p>累计捕获当前海域鱼类会召唤首领。首领分为声呐核心、外层护甲和虚空心脏三个阶段。</p><ul><li>第一阶段：把网落在发光弱点，破坏声呐核心。</li><li>第二阶段：命中热点或捕获高稀有鱼，破坏外层护甲。</li><li>第三阶段：红色窗口出现时立即收网；精准命中越完美，传说装备概率越高。</li></ul></div></article>
           <article class="guide-step"><span>05</span><div><small>构筑系统</small><h3>装备、技能与套装</h3><p>底部「舰载装备」管理 8 个槽位、套装、主动技和图鉴。相同装备会转化为强化或合金。</p><ul><li>装备主动技默认自动释放，手动可精确配合首领窗口。</li><li>五套套装在 2 / 4 / 6 / 8 件时逐层增强。</li><li>深渊航线完整返航会提供打捞装备与保底进度。</li><li>首领部位材料可在「巨兽熔铸」制作专属传说装备。</li></ul></div></article>
@@ -3757,6 +3858,7 @@
     dom.creditsButton.addEventListener("click", () => openModal("credits"));
     dom.equipmentButton.addEventListener("click", () => openModal("equipment"));
     dom.contractsButton.addEventListener("click", () => openModal("contracts"));
+    dom.ecologyHud?.addEventListener("click", () => openModal("ecology"));
     dom.guideButton?.addEventListener("click", () => openModal("guide"));
     dom.expeditionButton?.addEventListener("click", () => openModal("expedition"));
     dom.bossButton.addEventListener("click", () => openModal("boss"));
@@ -3793,6 +3895,9 @@
       const closeButton = event.target.closest("[data-modal-close]");
       const claimButton = event.target.closest("[data-claim-offline]");
       const contractButton = event.target.closest("[data-claim-contract]");
+      const contractTabButton = event.target.closest("[data-contract-tab]");
+      const weeklyClaimButton = event.target.closest("[data-claim-weekly]");
+      const journalClaimButton = event.target.closest("[data-claim-journal]");
       const researchButton = event.target.closest("[data-research]");
       const ascendButton = event.target.closest("[data-ascend]");
       const equipButton = event.target.closest("[data-equip-gear]");
@@ -3818,6 +3923,9 @@
       if (closeButton) closeModal();
       if (claimButton) claimOffline();
       if (contractButton) claimContract(contractButton.dataset.claimContract);
+      if (contractTabButton) { state.ui.contractTab = contractTabButton.dataset.contractTab; renderModal(); }
+      if (weeklyClaimButton) claimWeeklyContract(weeklyClaimButton.dataset.claimWeekly);
+      if (journalClaimButton) claimJournalMission(journalClaimButton.dataset.claimJournal);
       if (expeditionRouteButton) startExpedition(expeditionRouteButton.dataset.expeditionRoute);
       if (expeditionCrewButton) { state.expedition.crewMode = expeditionCrewButton.dataset.expeditionCrew; renderModal(); saveGame(true); }
       if (expeditionChoiceButton) resolveExpeditionChoice(expeditionChoiceButton.dataset.expeditionChoice);
@@ -3997,6 +4105,7 @@
   function initGame() {
     loadGame();
     ensureDailyContracts();
+    ensureWeeklyContracts();
     spawnSonarHotspots();
     updateEcology(0);
     renderGearSkillHud();

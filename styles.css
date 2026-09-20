@@ -5657,3 +5657,231 @@ button:not(:disabled):hover {
     grid-template-columns: 1fr;
   }
 }
+
+
+.contract-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 13px;
+}
+
+.contract-tabs button {
+  min-height: 36px;
+  border: 1px solid rgba(127, 216, 229, .16);
+  border-radius: 12px;
+  color: rgba(218, 244, 249, .75);
+  background: rgba(4, 17, 33, .42);
+}
+
+.contract-tabs button.active {
+  border-color: rgba(125, 236, 238, .48);
+  color: #efffff;
+  background: linear-gradient(145deg, rgba(49, 142, 160, .25), rgba(4, 17, 33, .48));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 0 18px rgba(77, 219, 229, .1);
+}
+
+.journal-list {
+  display: grid;
+  gap: 9px;
+}
+
+.journal-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 170px auto;
+  gap: 10px 14px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(132, 221, 222, .15);
+  border-radius: 15px;
+  background: rgba(4, 17, 33, .42);
+}
+
+.journal-card.ready {
+  border-color: rgba(255, 211, 106, .42);
+  background: linear-gradient(145deg, rgba(126, 83, 30, .17), rgba(4, 17, 33, .46));
+}
+
+.journal-card.claimed {
+  opacity: .62;
+}
+
+.journal-card small,
+.journal-card h3,
+.journal-card p {
+  display: block;
+  margin: 0;
+}
+
+.journal-card small {
+  color: #81e9ef;
+  font-size: 8px;
+}
+
+.journal-card h3 {
+  margin: 3px 0;
+  color: #f0ffff;
+  font-size: 12px;
+}
+
+.journal-card p {
+  color: rgba(207, 237, 243, .7);
+  font-size: 10px;
+}
+
+.journal-progress {
+  min-width: 0;
+}
+
+.journal-progress i {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #35bed0, #8ef2c8);
+  box-shadow: 0 0 12px rgba(111, 231, 224, .28);
+}
+
+.journal-progress span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(189, 231, 238, .68);
+  font-size: 9px;
+  text-align: right;
+}
+
+.journal-reward {
+  grid-column: 1;
+  color: #ffd982;
+  font-size: 9px;
+}
+
+.journal-card > button {
+  grid-column: 3;
+  grid-row: 1 / span 3;
+  min-width: 82px;
+}
+
+@media (max-width: 760px) {
+  .journal-card {
+    grid-template-columns: 1fr;
+  }
+
+  .journal-card > button {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+
+  .journal-reward {
+    grid-column: 1;
+  }
+}
+
+
+.ecology-hud { cursor: pointer; }
+
+.ecology-detail-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(130, 224, 231, .18);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(38, 129, 145, .17), rgba(5, 18, 35, .44));
+}
+
+.ecology-detail-hero > span {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 15px;
+  color: #9ff7f1;
+  background: rgba(92, 218, 220, .13);
+  font-size: 23px;
+}
+
+.ecology-detail-hero h3,
+.ecology-detail-hero p {
+  margin: 0;
+}
+
+.ecology-detail-hero h3 {
+  margin: 3px 0 5px;
+  color: #f0ffff;
+}
+
+.ecology-detail-hero p,
+.ecology-detail > p {
+  color: rgba(207, 237, 243, .72);
+  line-height: 1.6;
+}
+
+.ecology-detail-hero small {
+  color: #7ee5ee;
+}
+
+.ecology-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ecology-detail-grid span {
+  padding: 10px;
+  border: 1px solid rgba(131, 218, 228, .13);
+  border-radius: 13px;
+  background: rgba(5, 18, 35, .42);
+}
+
+.ecology-detail-grid small,
+.ecology-detail-grid strong,
+.ecology-detail-grid em {
+  display: block;
+}
+
+.ecology-detail-grid small {
+  color: rgba(172, 218, 229, .62);
+  font-size: 8px;
+}
+
+.ecology-detail-grid strong {
+  margin-top: 3px;
+  color: #eaffff;
+  font-size: 15px;
+}
+
+.ecology-detail-grid em {
+  margin-top: 4px;
+  color: rgba(190, 229, 237, .62);
+  font-size: 8px;
+  font-style: normal;
+  line-height: 1.4;
+}
+
+.ecology-formula {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid rgba(126, 221, 229, .15);
+  border-radius: 13px;
+  color: #a9f3ee;
+  background: rgba(4, 16, 32, .42);
+  font-size: 10px;
+}
+
+.ecology-formula strong {
+  width: 100%;
+  color: #eaffff;
+}
+
+@media (max-width: 760px) {
+  .ecology-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
