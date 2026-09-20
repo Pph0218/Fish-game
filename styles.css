@@ -4317,3 +4317,48 @@ body {
     display: none !important;
   }
 }
+/* Mobile status cards: prevent sea stats from being clipped by the ocean panel */
+@media (max-width: 760px) {
+  .top-status-strip {
+    max-height: 72px;
+    padding-bottom: 4px;
+    overflow-y: hidden;
+  }
+  .top-status-strip > * {
+    height: 64px;
+    min-height: 64px;
+  }
+  .top-status-strip .sea-hud {
+    gap: 3px;
+    align-content: center;
+  }
+  .top-status-strip .sea-hud-stats {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+    width: 100%;
+  }
+  .top-status-strip .sea-hud-stats span {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 6px;
+    line-height: 1.05;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .top-status-strip .sea-hud-stats b {
+    display: block;
+    max-width: 100%;
+    margin-top: 1px;
+    overflow: hidden;
+    font-size: 8px;
+    text-overflow: ellipsis;
+  }
+  .top-status-strip .zone-badge {
+    min-height: 22px;
+  }
+}
