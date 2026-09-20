@@ -705,7 +705,7 @@
       icon: "▣",
       description: "一艘旧时代调查船的货舱卡在暗流中，拆解或扫描都要付出时间。",
       choices: [
-        { id: "salvage", label: "拆解补给", result: "本次结算金币 +18%，合金 +4", effect: { goldPct: 0.18, alloy: 4 } },
+        { id: "salvage", label: "拆解补给", result: "本次结算金币 +18%，合金 +4，装备保底 +8", effect: { goldPct: 0.18, alloy: 4, gearPity: 8 } },
         { id: "scan", label: "扫描货舱", result: "本航程捕获量 +8%", effect: { catchPct: 0.08 } }
       ]
     },
@@ -793,7 +793,7 @@
         discovered: {}
       },
       sonar: { hotspots: [], nextSpawnAt: Date.now() + 12000, history: [] },
-      expedition: { active: null, completed: 0, bestScore: 0, crewMode: "balanced", log: [] },
+      expedition: { active: null, completed: 0, bestScore: 0, crewMode: "balanced", masteryXp: 0, masteryLevel: 0, log: [] },
       ecology: Object.fromEntries(zones.map((zone) => [zone.id, { preyDensity: 1, predatorPressure: 0.05, schoolMorale: 0.92, predatorCount: 0, lastUpdatedAt: Date.now() }])),
       codexMastery: {},
       contracts: { date: "", tasks: [], progress: {}, claimed: {}, streak: 0 },
@@ -872,9 +872,19 @@
     return defs.find((entry) => entry.id === item?.archetype) || defs[0] || { id: "legacy", name: "传统装备", icon: EQUIPMENT_SLOTS[slot]?.icon || "◇", stat: {} };
   }
 
+  function getEquippedSetCounts() {
+    const counts = {};
+    Object.values(state.equipment?.equipped || {}).forEach((id) => {
+      const item = id && state.equipment?.owned?.[id];
+      if (!item) return;
+      counts[item.set || "tide"] = (counts[item.set || "tide"] || 0) + 1;
+    });
+    return counts;
+  }
+
   function getEquipmentBonuses() {
     const bonuses = blankBonuses();
-    const setCounts = {};
+    const setCounts = getEquippedSetCounts();
     Object.entries(EQUIPMENT_SLOTS).forEach(([slot, def]) => {
       const id = state.equipment?.equipped?.[slot];
       const item = id && state.equipment?.owned?.[id];
@@ -965,6 +975,29 @@
     return state.unlockedZones.length >= (Number(route?.requiredZones) || 1);
   }
 
+  function getExpeditionMasteryCost(level = state.expedition?.masteryLevel || 0) {
+    return 900 + Math.max(0, Number(level) || 0) * 650;
+  }
+
+  function getExpeditionMasteryBonuses() {
+    const level = Math.max(0, Number(state.expedition?.masteryLevel) || 0);
+    return { allYieldPct: level * 0.004, bossRewardPct: level * 0.008, hotspotDurationPct: level * 0.012 };
+  }
+
+  function addExpeditionMastery(score = 0) {
+    if (!state.expedition) return { gained: 0, level: 0 };
+    const previous = Math.max(0, Number(state.expedition.masteryLevel) || 0);
+    state.expedition.masteryXp = Math.max(0, Number(state.expedition.masteryXp) || 0) + Math.max(0, Number(score) || 0);
+    let level = previous;
+    while (level < 20 && state.expedition.masteryXp >= getExpeditionMasteryCost(level)) {
+      state.expedition.masteryXp -= getExpeditionMasteryCost(level);
+      level += 1;
+    }
+    state.expedition.masteryLevel = level;
+    if (level >= 20) state.expedition.masteryXp = Math.min(state.expedition.masteryXp, getExpeditionMasteryCost(19));
+    return { gained: level - previous, level };
+  }
+
   function getExpeditionProgressRatio(active = state.expedition?.active) {
     if (!active) return 0;
     return clamp((Number(active.progress) || 0) / Math.max(1, Number(active.requiredCasts) || 1), 0, 1);
@@ -1005,6 +1038,7 @@
     ["goldPct", "alloy", "crystals", "catchPct", "rareChance", "legendChance", "bossProgressPct"].forEach((key) => {
       active.bonuses[key] = Number(active.bonuses[key] || 0) + Number(effect[key] || 0);
     });
+    if (effect.gearPity && state.equipment) state.equipment.rarePity = clamp((Number(state.equipment.rarePity) || 0) + Number(effect.gearPity), 0, 100);
     if (effect.progress) active.progress = Math.min(Number(active.requiredCasts) || 0, (Number(active.progress) || 0) + Number(effect.progress));
   }
 
@@ -1084,6 +1118,7 @@
     active.nodeIndex = Number(active.nodeIndex || 0) + 1;
     active.pendingNode = null;
     state.expedition.log = [...(state.expedition.log || []), { at: Date.now(), route: active.routeId, title: node.title, choice: choice.label, result: choice.result }].slice(-12);
+    recordContract("expedition", 1);
     showToast("航线节点完成", `${node.title} · ${choice.result}`, "success");
     if (active.nodeIndex >= active.thresholds.length) {
       if (active.progress >= active.requiredCasts || active.expired) finishExpedition(false);
@@ -1116,12 +1151,19 @@
     state.ascension.crystals += crystals;
     const stats = active.stats || {};
     const score = Math.round(ratio * 1000 + Number(stats.hotspots || 0) * 50 + Number(stats.rare || 0) * 80 + Number(stats.legendary || 0) * 240);
+    const mastery = addExpeditionMastery(score);
     state.expedition.completed = Number(state.expedition.completed || 0) + 1;
     state.expedition.bestScore = Math.max(Number(state.expedition.bestScore || 0), score);
     state.expedition.log = [...(state.expedition.log || []), { at: Date.now(), route: active.routeId, title: "返航结算", choice: early ? "提前返航" : "完成航线", result: `得分 ${score}` }].slice(-12);
     state.expedition.active = null;
+    if (!early && ratio >= 0.8) {
+      state.equipment.rarePity = clamp((Number(state.equipment.rarePity) || 0) + 10 + Math.floor(score / 250), 0, 100);
+      const guaranteedSalvage = ratio >= 0.9 && score >= 1300;
+      rollEquipmentDrop(route.requiredCasts >= 70 ? "legendary" : "rare", guaranteedSalvage);
+    }
     showToast("航线已结算", `${route.name} · 航程得分 ${score}。获得 ${formatNumber(gold)} 金币、${alloy} 合金与 ${crystals} 结晶。`, "gold");
-    showEventBanner("航线返航", `${route.name} · ${early ? "提前返航" : "完整航程"} · 得分 ${score}`, "gold", 4200);
+    showEventBanner("航线返航", `${route.name} · ${early ? "提前返航" : "完整航程"} · 得分 ${score}${mastery.gained ? ` · 航线等级 ${mastery.level}` : ""}`, "gold", 4200);
+    if (mastery.gained) showToast("航线等级提升", `航线等级达到 ${mastery.level}。永久获得全收益、首领奖励与声呐持续时间加成。`, "gold");
     if (activeModal?.type === "expedition") renderModal();
     updateAllUI();
     saveGame(true);
@@ -1239,7 +1281,7 @@
       try {
         const parsed = JSON.parse(String(reader.result || "{}"));
         if (!parsed || typeof parsed !== "object") throw new Error("invalid");
-        parsed.version = 6;
+        parsed.version = 7;
         localStorage.setItem(SAVE_KEY, JSON.stringify(parsed));
         showToast("存档导入成功", "页面即将刷新并读取导入进度。", "gold");
         window.setTimeout(() => location.reload(), 500);
@@ -1331,6 +1373,7 @@
       { id: "sell", type: "sell", title: "出售渔获获得金币", target: 1500 * Math.max(1, state.unlockedZones.length), reward: { crystals: 5, alloy: 5 } },
       { id: "process", type: "process", title: "加工渔获数量", target: 20 + Math.floor(seededValue(date + "c") * 60), reward: { crystals: 4, alloy: 6 } },
       { id: "hotspot", type: "hotspot", title: "命中声呐热点", target: 3 + Math.floor(seededValue(date + "d") * 4), reward: { crystals: 6, alloy: 8 } },
+      { id: "expedition", type: "expedition", title: "推进深渊航线节点", target: 2 + Math.floor(seededValue(date + "e") * 3), reward: { crystals: 5, alloy: 7 } },
       { id: "boss", type: "boss", title: "击败巨兽信号", target: 1, reward: { crystals: 10, alloy: 12 } }
     ];
     state.contracts.tasks = pool.sort((a, b) => seededValue(date + a.id) - seededValue(date + b.id)).slice(0, 3);
@@ -1359,13 +1402,14 @@
 
   function spawnSonarHotspots() {
     const now = Date.now();
+    const durationPct = clamp(Number(getAllStatBonuses().hotspotDurationPct) || 0, 0, 2);
     const count = 1 + Math.floor(Math.random() * 3);
     const hotspots = [];
     for (let i = 0; i < count; i += 1) {
       const roll = Math.random();
       const type = roll < 0.08 ? "legendary" : roll < 0.3 ? "rare" : "normal";
       const def = HOTSPOT_TYPES[type];
-      hotspots.push({ id: now + "-" + i + "-" + Math.floor(Math.random() * 9999), type, zone: state.currentZone, x: 12 + Math.random() * 76, y: 42 + Math.random() * 42, vx: (Math.random() - 0.5) * 0.0016, radius: def.radius + getLevel("sonar") * 0.45 + getLevel("fish_radar") * 0.3, bornAt: now, expiresAt: now + (def.duration + getLevel("fish_radar") * 0.4) * 1000 });
+      hotspots.push({ id: now + "-" + i + "-" + Math.floor(Math.random() * 9999), type, zone: state.currentZone, x: 12 + Math.random() * 76, y: 42 + Math.random() * 42, vx: (Math.random() - 0.5) * 0.0016, radius: def.radius + getLevel("sonar") * 0.45 + getLevel("fish_radar") * 0.3, bornAt: now, expiresAt: now + (def.duration * (1 + durationPct) + getLevel("fish_radar") * 0.4) * 1000 });
     }
     const bossSpot = (state.sonar.hotspots || []).find((spot) => state.boss && state.boss.hotspotId === spot.id);
     state.sonar.hotspots = bossSpot ? [...hotspots, bossSpot] : hotspots;
@@ -1538,10 +1582,18 @@
     return index <= 3 ? 3 : index <= 5 ? 4 : 5;
   }
 
+  function getBossWeakpointDirection(boss) {
+    const spot = (state.sonar?.hotspots || []).find((item) => item.id === boss?.weakpointId) || (state.sonar?.hotspots || []).find((item) => item.id === boss?.hotspotId);
+    if (!spot) return "待声呐锁定";
+    const horizontal = spot.x < 42 ? "左侧" : spot.x > 58 ? "右侧" : "中央";
+    const vertical = spot.y < 54 ? "上方" : spot.y > 72 ? "下方" : "中段";
+    return horizontal === "中央" ? `${vertical}弱点` : `${horizontal}${vertical}`;
+  }
+
   function getBossPhaseInstruction(boss) {
     if (!boss) return "捕获鱼类以召唤首领。";
-    if (boss.phase === 1) return "将网落在发光弱点上，完成声呐追踪。";
-    if (boss.phase === 2) return "命中闪烁热点，或捕获稀有与传说鱼填充破甲条。";
+    if (boss.phase === 1) return `把网落在${getBossWeakpointDirection(boss)}的发光位置。`;
+    if (boss.phase === 2) return "金色热点最有效；稀有鱼 +1.5 格，传说鱼 +2 格。";
     return "红色收网窗口出现时按空格、点击或触屏完成终结。";
   }
   function updateZoneProgress(amount) {
@@ -1666,7 +1718,7 @@
   }
 
   function getAscensionReward() {
-    return Math.max(1, Math.floor(Math.log10(state.totalGoldEarned + 10) * 12) + state.unlockedZones.length * 5 + getTotalBossDefeated() * 3 + getUltimateCount() * 8 + (allNodes.every((node) => getLevel(node.id) >= node.max) ? 30 : 0));
+    return Math.max(1, Math.floor(Math.log10(state.totalGoldEarned + 10) * 12) + state.unlockedZones.length * 5 + getTotalBossDefeated() * 3 + getUltimateCount() * 8 + (Number(state.expedition?.masteryLevel) || 0) * 4 + (allNodes.every((node) => getLevel(node.id) >= node.max) ? 30 : 0));
   }
 
   function getEquipmentScore(item) {
@@ -2488,6 +2540,8 @@
         log: Array.isArray(savedExpedition.log) ? savedExpedition.log.slice(-12) : [],
         completed: Number(savedExpedition.completed) || 0,
         bestScore: Number(savedExpedition.bestScore) || 0,
+        masteryXp: Number(savedExpedition.masteryXp) || 0,
+        masteryLevel: Math.min(20, Math.max(0, Number(savedExpedition.masteryLevel) || 0)),
         crewMode: EXPEDITION_CREW_MODES[savedExpedition.crewMode] ? savedExpedition.crewMode : "balanced"
       };
       state.ecology = Object.fromEntries(zones.map((zone) => {
@@ -2934,7 +2988,7 @@
         const claimed = Boolean(state.contracts.claimed[task.id]);
         const ready = progress >= task.target && !claimed;
         return `<article class="contract-card ${ready ? "ready" : ""} ${claimed ? "claimed" : ""}">
-          <div class="contract-card-head"><span class="contract-glyph">${task.type === "boss" ? "☠" : task.type === "hotspot" ? "◉" : "▤"}</span><div><small>深海委托</small><h3>${task.title}</h3></div></div>
+          <div class="contract-card-head"><span class="contract-glyph">${task.type === "boss" ? "☠" : task.type === "hotspot" ? "◉" : task.type === "expedition" ? "⌁" : "▤"}</span><div><small>深海委托</small><h3>${task.title}</h3></div></div>
           <div class="contract-progress"><i style="width:${Math.round(ratio * 100)}%"></i></div>
           <div class="contract-progress-copy"><span>${formatNumber(progress)} / ${formatNumber(task.target)}</span><strong>${claimed ? "已领取" : ready ? "可领取" : `${Math.round(ratio * 100)}%`}</strong></div>
           <div class="contract-reward"><span>结晶 +${task.reward.crystals}</span><span>合金 +${task.reward.alloy}</span></div>
@@ -2982,8 +3036,12 @@
     if (activeModal.type === "expedition") {
       const active = state.expedition?.active;
       const crew = getExpeditionCrew();
+      const masteryLevel = Math.max(0, Number(state.expedition?.masteryLevel) || 0);
+      const masteryXp = Math.max(0, Number(state.expedition?.masteryXp) || 0);
+      const masteryCost = getExpeditionMasteryCost(masteryLevel);
+      const masteryProgress = masteryLevel >= 20 ? 1 : clamp(masteryXp / masteryCost, 0, 1);
       title = active ? getExpeditionRoute(active.routeId).name : "深渊航线";
-      subtitle = active ? `${getExpeditionRoute(active.routeId).tag} · 船员：${crew.name} · ${active.pendingNode ? "节点待处理" : active.expired ? "已抵达返航点" : "航线持续记录中"}` : `已完成 ${state.expedition.completed} 次航行 · 最高航程得分 ${formatNumber(state.expedition.bestScore)}。选择航线与船员策略后即可出发。`;
+      subtitle = active ? `${getExpeditionRoute(active.routeId).tag} · 船员：${crew.name} · ${active.pendingNode ? "节点待处理" : active.expired ? "已抵达返航点" : "航线持续记录中"}` : `航线等级 ${masteryLevel} / 20 · 已完成 ${state.expedition.completed} 次航行 · 最高航程得分 ${formatNumber(state.expedition.bestScore)}。`;
       if (!active) {
         const routeCards = EXPEDITION_ROUTES.map((route) => {
           const unlocked = getExpeditionRouteUnlocked(route);
@@ -2996,7 +3054,7 @@
           </article>`;
         }).join("");
         const crewCards = Object.entries(EXPEDITION_CREW_MODES).map(([id, mode]) => `<button class="crew-option ${state.expedition.crewMode === id ? "active" : ""}" type="button" data-expedition-crew="${id}"><span>${mode.icon}</span><div><strong>${mode.name}</strong><small>${mode.description}</small></div><b>${state.expedition.crewMode === id ? "已选择" : "选择"}</b></button>`).join("");
-        body = `<div class="expedition-hero"><span>⌁</span><div><small>长期航行协议</small><h3>让每一次撒网都有航线目标</h3><p>路线会持续记录手动落网、热点命中和首领辅助。抵达节点时暂停推进，选择一条明确收益；提前返航按航程结算。</p></div></div><h3 class="modal-subheading">船员策略</h3><div class="crew-options">${crewCards}</div><h3 class="modal-subheading">选择航线</h3><div class="expedition-routes">${routeCards}</div>`;
+        body = `<div class="expedition-hero"><span>⌁</span><div><small>长期航行协议</small><h3>让每一次撒网都有航线目标</h3><p>路线会持续记录手动落网、热点命中和首领辅助。抵达节点时暂停推进，选择一条明确收益；提前返航按航程结算。</p><div class="expedition-mastery"><div><small>航线等级 ${masteryLevel} / 20</small><strong>全收益 +${(masteryLevel * 0.4).toFixed(1)}% · 首领奖励 +${(masteryLevel * 0.8).toFixed(1)}% · 热点时长 +${(masteryLevel * 1.2).toFixed(1)}%</strong></div><div class="expedition-mastery-track"><i style="width:${Math.round(masteryProgress * 100)}%"></i></div><b>${masteryLevel >= 20 ? "MAX" : `${formatNumber(masteryXp)} / ${formatNumber(masteryCost)}`}</b></div></div></div><h3 class="modal-subheading">船员策略</h3><div class="crew-options">${crewCards}</div><h3 class="modal-subheading">选择航线</h3><div class="expedition-routes">${routeCards}</div>`;
         footer = `<button class="modal-button" type="button" data-modal-close>暂时不出发</button>`;
       } else {
         const route = getExpeditionRoute(active.routeId);
@@ -3078,29 +3136,33 @@
       const tabs = [["equipped", "当前装备"], ["collection", "收藏库"], ["skills", "技能配置"], ["codex", "装备图鉴"]];
       const tabBar = `<div class="equipment-tabs">${tabs.map(([id, label]) => `<button type="button" class="${tab === id ? "active" : ""}" data-equip-tab="${id}">${label}</button>`).join("")}</div>`;
       let panel = "";
+      const setCounts = getEquippedSetCounts();
+      const setStrip = `<div class="equipment-set-strip">${Object.entries(EQUIPMENT_SETS).map(([setId, set]) => { const count = Number(setCounts[setId] || 0); const next = Object.keys(set.bonuses || {}).map(Number).sort((a, b) => a - b).find((threshold) => count < threshold); return `<div class="equipment-set-chip ${count ? "active" : ""}" style="--set-color:${set.color}"><span>${set.name}</span><strong>${count} / 8</strong><small>${count ? next ? `下一档 ${next} 件` : "八件套已激活" : "未装备"}</small></div>`; }).join("")}</div>`;
       if (tab === "equipped") {
-        panel = `<div class="equipment-grid equipment-grid-eight">${Object.entries(EQUIPMENT_SLOTS).map(([slot, def]) => {
+        panel = setStrip + `<div class="equipment-grid equipment-grid-eight">${Object.entries(EQUIPMENT_SLOTS).map(([slot, def]) => {
           const itemId = state.equipment.equipped[slot];
           const item = itemId && state.equipment.owned[itemId];
           const archetype = item ? getEquipmentArchetype(slot, item) : null;
           const rarity = item ? EQUIPMENT_RARITIES[item.rarity] : null;
           const skill = archetype && archetype.activeSkill ? GEAR_SKILLS[archetype.activeSkill] : null;
           const value = item ? def.base * rarity.multiplier * (1 + (item.level - 1) * 0.1) : 0;
+          const itemSetCount = item ? Number(setCounts[item.set] || 0) : 0;
+          const nextSetThreshold = item ? Object.keys(EQUIPMENT_SETS[item.set]?.bonuses || {}).map(Number).sort((a, b) => a - b).find((threshold) => itemSetCount < threshold) : null;
           return `<article class="equipment-slot ${item ? "owned" : "empty"}" style="--gear-color:${rarity ? rarity.color : "#557189"}">
             <div class="equipment-icon">${def.icon}</div>
-            <div class="equipment-copy"><small>${def.name} · ${def.description}</small><strong>${item ? `${archetype.name} · ${rarity.name}` : "未装备"}</strong><p>${item ? `Lv.${item.level} · ${(value * 100).toFixed(1)}% ${def.stat}${skill ? ` · ${skill.name}` : ""}` : "稀有鱼、传说鱼、首领与宝箱可获得装备"}</p></div>
+            <div class="equipment-copy"><small>${def.name} · ${def.description}</small><strong>${item ? `${archetype.name} · ${rarity.name}` : "未装备"}</strong><p>${item ? `Lv.${item.level} · ${(value * 100).toFixed(1)}% ${def.stat}${skill ? ` · ${skill.name}` : ""} · ${EQUIPMENT_SETS[item.set]?.name || "潮汐"} ${itemSetCount}/8${nextSetThreshold ? `（下一档 ${nextSetThreshold}）` : ""}` : "稀有鱼、传说鱼、首领、宝箱与深渊航线可获得装备"}</p></div>
             ${item ? `<button class="modal-button gear-action" data-upgrade-gear="${item.id}">强化 ${Math.ceil((12 + item.level * 16) * rarity.multiplier)} 合金</button>` : ""}
           </article>`;
         }).join("")}</div>`;
       } else if (tab === "collection") {
         const owned = Object.values(state.equipment.owned);
-        panel = owned.length ? `<div class="equipment-collection"><h3>收藏 ${owned.length} / 32</h3><div class="gear-list">${owned.map((item) => {
+        panel = setStrip + (owned.length ? `<div class="equipment-collection"><h3>收藏 ${owned.length} / 32</h3><div class="gear-list">${owned.map((item) => {
           const slotDef = EQUIPMENT_SLOTS[item.slot] || EQUIPMENT_SLOTS.net;
           const archetype = getEquipmentArchetype(item.slot, item);
           const rarity = EQUIPMENT_RARITIES[item.rarity] || EQUIPMENT_RARITIES.common;
           const equipped = state.equipment.equipped[item.slot] === item.id;
           return `<article class="gear-card ${equipped ? "equipped" : ""}" style="--gear-color:${rarity.color}"><div class="equipment-icon">${archetype.icon || slotDef.icon}</div><div><small>${slotDef.name} · ${rarity.name} Lv.${item.level}</small><strong>${archetype.name}</strong><p>${archetype.passive || "传统属性"} · ${EQUIPMENT_SETS[item.set]?.name || "潮汐"}套装</p></div><div class="gear-card-actions"><button class="modal-button" data-equip-gear="${item.id}">${equipped ? "已装备" : "装备"}</button><button class="modal-button" data-upgrade-gear="${item.id}">强化</button></div></article>`;
-        }).join("")}</div></div>` : `<p class="muted">尚未获得装备。稀有鱼、传说鱼、首领和漂流宝箱均有机会掉落。</p>`;
+        }).join("")}</div></div>` : `<p class="muted">尚未获得装备。稀有鱼、传说鱼、首领、漂流宝箱和深渊航线均有机会掉落。</p>`);
       } else if (tab === "skills") {
         const equipped = getEquippedActiveSkills();
         panel = `<div class="skill-config-head"><div><small>当前模式</small><strong>${state.equipment.skillMode === "manual" ? "手动协同" : "协同释放"}</strong><p>手动键位 R / T / Y；自动模式冷却时间增加 15%。</p></div><button class="modal-button" data-toggle-skill-mode>${state.equipment.skillMode === "manual" ? "切换自动" : "切换手动"}</button></div><div class="skill-loadout">${Object.entries(GEAR_SKILLS).map(([id, skill]) => {
@@ -3131,7 +3193,7 @@
         const unlocked = isProtocolUnlocked(protocol.id);
         return `<article class="protocol-card ${unlocked ? "unlocked" : "locked"}"><span>${protocol.icon}</span><div><small>${protocol.count} 次跃迁解锁</small><strong>${protocol.name}</strong><p>${protocol.description}</p></div><em>${unlocked ? "已激活" : "未激活"}</em></article>`;
       }).join("");
-      body = `<div class="ascension-summary"><span>终极技能 ${getUltimateCount()} / 3</span><span>累计首领 ${getTotalBossDefeated()}</span><span>本次跃迁奖励 ${reward} 结晶</span></div><div class="ascension-detail"><div><small>跃迁会重置</small><strong>金币 · 鱼舱 · 普通海域 · 80 个普通天赋</strong><p>装备、图鉴、成就、科研、协议、首领奖杯与跃迁次数永久保留。</p></div></div><h3 class="modal-subheading">永久科研</h3><div class="research-list">${researchCards}</div><h3 class="modal-subheading">深潜协议</h3><div class="protocol-list">${protocolCards}</div>`;
+      body = `<div class="ascension-summary"><span>终极技能 ${getUltimateCount()} / 3</span><span>累计首领 ${getTotalBossDefeated()}</span><span>航线等级 ${Number(state.expedition?.masteryLevel) || 0}</span><span>本次跃迁奖励 ${reward} 结晶</span></div><div class="ascension-detail"><div><small>跃迁会重置</small><strong>金币 · 鱼舱 · 普通海域 · 80 个普通天赋</strong><p>装备、图鉴、成就、科研、协议、首领奖杯与跃迁次数永久保留。</p></div></div><h3 class="modal-subheading">永久科研</h3><div class="research-list">${researchCards}</div><h3 class="modal-subheading">深潜协议</h3><div class="protocol-list">${protocolCards}</div>`;
       footer = `<button class="modal-button primary" type="button" data-ascend ${canAscend() ? "" : "disabled"}>${canAscend() ? `执行跃迁 · +${reward} 结晶` : "需激活三个终极技能"}</button>`;
     }
     if (activeModal.type === "offline") {

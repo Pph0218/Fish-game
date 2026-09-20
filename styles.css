@@ -4972,3 +4972,122 @@ button:not(:disabled):hover {
     grid-column: 2;
   }
 }
+
+.expedition-mastery {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 12px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 10px 11px;
+  border: 1px solid rgba(126, 221, 229, .16);
+  border-radius: 13px;
+  background: rgba(4, 16, 32, .42);
+}
+
+.expedition-mastery small,
+.expedition-mastery strong {
+  display: block;
+}
+
+.expedition-mastery small {
+  color: rgba(164, 222, 232, .66);
+  font-size: 9px;
+}
+
+.expedition-mastery strong {
+  margin-top: 3px;
+  color: #b8f6f3;
+  font-size: 10px;
+}
+
+.expedition-mastery > b {
+  color: #8cebf0;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.expedition-mastery-track {
+  grid-column: 1 / -1;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(4, 13, 27, .72);
+}
+
+.expedition-mastery-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #36bfd0, #8ef2c8, #f4ce74);
+  box-shadow: 0 0 12px rgba(111, 231, 224, .35);
+}
+
+.equipment-set-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.equipment-set-chip {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid rgba(135, 218, 226, .13);
+  border-radius: 12px;
+  background: rgba(4, 17, 33, .38);
+  opacity: .62;
+}
+
+.equipment-set-chip.active {
+  border-color: color-mix(in srgb, var(--set-color, #67e8f9) 48%, transparent);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--set-color, #67e8f9) 16%, transparent), rgba(4, 17, 33, .48));
+  opacity: 1;
+}
+
+.equipment-set-chip span,
+.equipment-set-chip strong,
+.equipment-set-chip small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.equipment-set-chip span {
+  color: var(--set-color, #8cebf0);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.equipment-set-chip strong {
+  margin-top: 3px;
+  color: #eaffff;
+  font-size: 11px;
+}
+
+.equipment-set-chip small {
+  margin-top: 2px;
+  color: rgba(181, 225, 234, .62);
+  font-size: 8px;
+}
+
+@media (max-width: 760px) {
+  .equipment-set-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ascension-summary {
+  flex-wrap: wrap;
+}
+
+.ascension-summary > span {
+  flex: 1 1 auto;
+}
+
+@media (max-width: 620px) {
+  .ascension-summary > span {
+    flex: 1 1 42%;
+  }
+}
