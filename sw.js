@@ -1,19 +1,10 @@
-const CACHE_NAME = "tide-fishery-v20260920-42";
+const CACHE_NAME = "tide-fishery-text-v20260921-05";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20260920-42",
-  "./assets/fish/sprites-data.js?v=20260920-42",
-  "./assets/fish/custom-manifest.js?v=20260920-42",
-  "./fish-art.js?v=20260920-42",
-  "./spriteFish.js?v=20260920-42",
-  "./leaderboard-config.js?v=20260920-42",
-  "./leaderboard.js?v=20260920-42",
-  "./audio.js?v=20260920-42",
-  "./app.js?v=20260920-42",
-  "./ocean3d.js?v=20260920-42",
-  "./vendor/three/three.global.js",
-  "./vendor/three/GLTFLoader.global.js",
+  "./styles.css?v=20260921-05",
+  "./audio.js?v=20260921-05",
+  "./app.js?v=20260921-05",
   "./manifest.webmanifest",
   "./version.json"
 ];

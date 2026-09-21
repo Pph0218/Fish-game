@@ -174,7 +174,6 @@
     ecoModifier: document.getElementById("ecoModifier"),
     gearSkillHud: document.getElementById("gearSkillHud"),
     gearSkillMode: document.getElementById("gearSkillMode"),
-    oceanCanvas: document.getElementById("oceanCanvas"),
     splashField: document.getElementById("splashField"),
     seaButton: document.getElementById("seaButton"),
     castConsole: document.getElementById("castConsole"),
@@ -235,8 +234,62 @@
     eventBannerTitle: document.getElementById("eventBannerTitle"),
     eventBannerText: document.getElementById("eventBannerText"),
     modalLayer: document.getElementById("modalLayer"),
-    toastRoot: document.getElementById("toastRoot")
+    toastRoot: document.getElementById("toastRoot"),
+    textDashboard: document.getElementById("textDashboard"),
+    textTargetList: document.getElementById("textTargetList"),
+    textDashboardZone: document.getElementById("textDashboardZone"),
+    textDashboardSubtitle: document.getElementById("textDashboardSubtitle"),
+    textCastButton: document.getElementById("textCastButton"),
+    diveOxygenMetric: document.getElementById("diveOxygenMetric"),
+    diveHullMetric: document.getElementById("diveHullMetric"),
+    diveCargoMetric: document.getElementById("diveCargoMetric"),
+    diveScoreMetric: document.getElementById("diveScoreMetric"),
+    diveNodeTitle: document.getElementById("diveNodeTitle"),
+    diveNodeText: document.getElementById("diveNodeText"),
+    diveNodeActions: document.getElementById("diveNodeActions"),
+    fleetIncomeMetric: document.getElementById("fleetIncomeMetric"),
+    fleetOfflineMetric: document.getElementById("fleetOfflineMetric"),
+    fleetModeMetric: document.getElementById("fleetModeMetric"),
+    sampleMetric: document.getElementById("sampleMetric"),
+    textActionLog: document.getElementById("textActionLog"),
+    clearTextLog: document.getElementById("clearTextLog")
   };
+
+
+  function isTextMode() {
+    return state.ui?.textMode !== false;
+  }
+
+  function nowClock() {
+    const date = new Date();
+    return [String(date.getHours()).padStart(2, "0"), String(date.getMinutes()).padStart(2, "0"), String(date.getSeconds()).padStart(2, "0")].join(":");
+  }
+
+  function appendTextLog(message, type = "info") {
+    if (!Array.isArray(state.textLog)) state.textLog = [];
+    state.textLog.push({ at: nowClock(), type, message: String(message || "") });
+    state.textLog = state.textLog.slice(-60);
+    renderTextLog();
+  }
+
+  function renderTextLog() {
+    if (!dom.textActionLog) return;
+    const entries = Array.isArray(state.textLog) ? state.textLog : [];
+    dom.textActionLog.innerHTML = entries.slice().reverse().map((entry) => `<div class="text-log-entry ${entry.type || "info"}"><time>${entry.at}</time><strong>${entry.type === "rare" ? "稀有" : entry.type === "legendary" ? "传说" : entry.type === "danger" ? "警告" : "记录"}</strong><span>${entry.message}</span></div>`).join("") || `<div class="text-log-entry"><time>--:--:--</time><strong>待命</strong><span>还没有航行记录。</span></div>`;
+  }
+
+  function getResourceCount(key) {
+    if (key === "alloy") return Number(state.equipment?.alloy) || 0;
+    if (key === "crystals") return Number(state.ascension?.crystals) || 0;
+    return Number(state.resources?.[key]) || 0;
+  }
+
+  function addResource(key, amount) {
+    const value = Number(amount) || 0;
+    if (key === "alloy") { state.equipment.alloy = Math.max(0, (Number(state.equipment.alloy) || 0) + value); state.resources.alloy = state.equipment.alloy; return; }
+    if (key === "crystals") { state.ascension.crystals = Math.max(0, (Number(state.ascension.crystals) || 0) + value); state.resources.crystals = state.ascension.crystals; return; }
+    state.resources[key] = Math.max(0, (Number(state.resources[key]) || 0) + value);
+  }
 
   const zones = [
     { id: "shallow", name: "岸边浅滩", short: "浅滩", subtitle: "第 1 海域", cost: 0, priceMult: 1, rareChance: 0.035, legendaryChance: 0.002, emptyChance: 0.32, description: "水流平缓，普通鱼群密集，是渔场起步的可靠水域。" },
@@ -249,56 +302,86 @@
     { id: "void", name: "星海归墟", short: "归墟", subtitle: "第 8 海域", cost: 1200000000, priceMult: 108, rareChance: 0.49, legendaryChance: 0.14, emptyChance: 0.1, description: "星海与深海交界，重力潮汐孕育最终虚空生物。", unlockRequirements: { bosses: 6, ascension: 1, protocol: "deep_start" } }
   ];
 
+  zones.push(
+    { id: "trench", name: "深渊熔光带", short: "熔光", subtitle: "第 9 海域", cost: 18000000000, priceMult: 180, rareChance: 0.51, legendaryChance: 0.15, emptyChance: 0.1, description: "熔光在深渊底部流动，只有高层科研才能稳定作业。", unlockRequirements: { bosses: 8, research: 24 } },
+    { id: "shipwreck", name: "远古沉船海", short: "沉船", subtitle: "第 10 海域", cost: 120000000000, priceMult: 300, rareChance: 0.53, legendaryChance: 0.17, emptyChance: 0.09, description: "失落的舰队沉没于此，残骸与稀有鱼群交错。", unlockRequirements: { bosses: 10, research: 30 } },
+    { id: "temple", name: "海神遗迹群", short: "遗迹", subtitle: "第 11 海域", cost: 800000000000, priceMult: 520, rareChance: 0.55, legendaryChance: 0.19, emptyChance: 0.08, description: "沉睡的遗迹释放古老回声，深潜风险显著上升。", unlockRequirements: { bosses: 12, research: 36 } },
+    { id: "blacktide", name: "黑潮断层", short: "黑潮", subtitle: "第 12 海域", cost: 6000000000000, priceMult: 950, rareChance: 0.57, legendaryChance: 0.22, emptyChance: 0.075, description: "黑潮切断常规航线，只有自动化舰队能够穿越。", unlockRequirements: { bosses: 14, research: 42 } },
+    { id: "star_grave", name: "星骸墓场", short: "星骸", subtitle: "第 13 海域", cost: 40000000000000, priceMult: 1800, rareChance: 0.59, legendaryChance: 0.25, emptyChance: 0.07, description: "陨落星骸沉睡在海底，时间和重力都出现偏差。", unlockRequirements: { bosses: 16, research: 48 } },
+    { id: "time_sea", name: "时间静海", short: "静海", subtitle: "第 14 海域", cost: 300000000000000, priceMult: 3600, rareChance: 0.61, legendaryChance: 0.29, emptyChance: 0.06, description: "海水几乎不再流动，只有回声记录曾经的时间。", unlockRequirements: { bosses: 18, research: 54 } },
+    { id: "throne", name: "深海王座", short: "王座", subtitle: "第 15 海域", cost: 2000000000000000, priceMult: 7200, rareChance: 0.63, legendaryChance: 0.33, emptyChance: 0.05, description: "所有深海航线的终点，古老王座等待真正的主人。", unlockRequirements: { bosses: 20, research: 60, ascension: 1 } },
+    { id: "origin", name: "潮汐原点", short: "原点", subtitle: "第 16 海域", cost: 15000000000000000, priceMult: 15000, rareChance: 0.66, legendaryChance: 0.38, emptyChance: 0.04, description: "潮汐与星海最初的交点，潜航记录将在这里归档。", unlockRequirements: { bosses: 24, research: 72, ascension: 2, protocol: "star_chart" } }
+  );
+
   const species = [
-    { id: "silver_scad", zone: "shallow", name: "银鲹", tier: "normal", basePrice: 1, color: "#a8edf2", image: "assets/fish/kenney/Vector/fish_grey_long_a.svg", imageScale: 1.65, flip: false, accent: "#eaffff", pattern: "stripe", motion: "slim" },
-    { id: "sardine", zone: "shallow", name: "沙丁鱼", tier: "normal", basePrice: 1, color: "#88dce8", image: "assets/fish/kenney/Vector/fish_grey_long_b.svg", imageScale: 1.52, flip: false, accent: "#f4ffff", pattern: "none", motion: "school" },
-    { id: "spotted_bream", zone: "shallow", name: "斑石鲷", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#68e1c1", image: "assets/fish/kenney/Vector/fish_green.svg", imageScale: 1.68, flip: true, accent: "#baffdf", pattern: "spots", motion: "steady" },
-    { id: "moon_carp", zone: "shallow", name: "月光鲤", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#ffe28f", image: "assets/fish/detail/aqua-fish-card.png", imageScale: 1.92, flip: false, accent: "#fff1a6", pattern: "moon", motion: "hero", detail: true },
-    { id: "red_snapper", zone: "reef", name: "红鳍笛鲷", tier: "normal", basePrice: 1, color: "#ff9e82", image: "assets/fish/kenney/Vector/fish_red.svg", imageScale: 1.68, flip: true, accent: "#ffd2c2", pattern: "scales", motion: "steady" },
-    { id: "grouper", zone: "reef", name: "礁石斑鱼", tier: "normal", basePrice: 1, color: "#c6a57c", image: "assets/fish/kenney/Vector/fish_brown.svg", imageScale: 1.82, flip: false, accent: "#f2d6a8", pattern: "spots", motion: "heavy" },
-    { id: "blue_spotted_ray", zone: "reef", name: "蓝点鲛", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#63b9ff", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 1.92, flip: true, accent: "#c4ecff", pattern: "spots", motion: "glide" },
-    { id: "coral_dragon", zone: "reef", name: "珊瑚龙鱼", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#ffb5d0", image: "assets/fish/detail/purple-fish-card.png", imageScale: 1.3, flip: true, accent: "#ffd9e7", pattern: "coral", motion: "hero", detail: true },
-    { id: "deep_cod", zone: "deep", name: "深海鳕", tier: "normal", basePrice: 1, color: "#9cb7c9", image: "assets/fish/kenney/Vector/fish_grey_long_a.svg", imageScale: 1.08, flip: false, accent: "#d9f3ff", pattern: "none", motion: "steady" },
-    { id: "bluefin_tuna", zone: "deep", name: "蓝鳍金枪鱼", tier: "normal", basePrice: 1, color: "#6ba9d7", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 1.92, flip: true, accent: "#bde8ff", pattern: "stripe", motion: "fast" },
-    { id: "oarfish", zone: "deep", name: "皇带鱼", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#c8e7f5", image: "assets/fish/kenney/Vector/fish_grey_long_b.svg", imageScale: 1.92, flip: false, accent: "#f5fbff", pattern: "ribbon", motion: "ribbon", stretch: 1.28 },
-    { id: "lanternfish", zone: "deep", name: "灯笼巨口鱼", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#b6ff8f", image: "assets/fish/detail/aqua-fish-card.png", imageScale: 1.4, flip: true, accent: "#d8ffb4", pattern: "glow", motion: "hero", detail: true },
-    { id: "abyss_eel", zone: "abyss", name: "深渊鳗", tier: "normal", basePrice: 1, color: "#7286ad", image: "assets/fish/kenney/Vector/fish_grey_long_b.svg", imageScale: 1.4, flip: false, accent: "#b8c6ef", pattern: "ribbon", motion: "ribbon", stretch: 1.35 },
-    { id: "black_sea_bream", zone: "abyss", name: "黑棘鲷", tier: "normal", basePrice: 1, color: "#8994ad", image: "assets/fish/kenney/Vector/fish_grey.svg", imageScale: 1.92, flip: true, accent: "#c2cce6", pattern: "scales", motion: "heavy" },
-    { id: "ghost_shark", zone: "abyss", name: "幽灵鲨", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#93b6ff", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 2, flip: false, accent: "#d8e6ff", pattern: "ghost", motion: "glide", stretch: 1.18 },
-    { id: "starlight_whale", zone: "abyss", name: "星辉鲸", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#e4d5ff", image: "assets/fish/detail/purple-fish-card.png", imageScale: 1.7, flip: true, accent: "#ffffff", pattern: "stars", motion: "hero", detail: true },
-    { id: "prism_guppy", zone: "shallow", name: "棱镜鳉鱼", tier: "normal", basePrice: 1, color: "#7debc6", image: "assets/fish/kenney/Vector/fish_green.svg", imageScale: 1.6, flip: false, accent: "#d8fff2", pattern: "stripe", motion: "school" },
-    { id: "lagoon_pike", zone: "shallow", name: "潟湖狗鱼", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#8ad4ff", image: "assets/fish/kenney/Vector/fish_grey_long_b.svg", imageScale: 1.72, flip: true, accent: "#dff7ff", pattern: "spots", motion: "fast", stretch: 1.18 },
-    { id: "neon_lionfish", zone: "reef", name: "霓虹狮子鱼", tier: "normal", basePrice: 1, color: "#ff9a62", image: "assets/fish/kenney/Vector/fish_orange.svg", imageScale: 1.68, flip: false, accent: "#ffe0a0", pattern: "stripe", motion: "steady" },
-    { id: "crystal_turtle", zone: "reef", name: "水晶海龟", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#72e3ca", image: "assets/fish/kenney/Vector/fish_green.svg", imageScale: 1.74, flip: true, accent: "#d9fff8", pattern: "scales", motion: "heavy" },
-    { id: "gloom_sword", zone: "deep", name: "幽暗剑鱼", tier: "normal", basePrice: 1, color: "#7ea8c8", image: "assets/fish/kenney/Vector/fish_grey.svg", imageScale: 1.82, flip: false, accent: "#cfefff", pattern: "stripe", motion: "fast", stretch: 1.2 },
-    { id: "plasma_manta", zone: "deep", name: "等离子鳐", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#997eff", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 2.05, flip: true, accent: "#ddd4ff", pattern: "glow", motion: "glide", stretch: 1.28 },
-    { id: "nebula_eel", zone: "abyss", name: "星云鳗", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#825fff", image: "assets/fish/kenney/Vector/fish_grey_long_b.svg", imageScale: 1.9, flip: false, accent: "#e3dcff", pattern: "stars", motion: "ribbon", stretch: 1.35 },
-    { id: "titan_whale", zone: "abyss", name: "泰坦鲸", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#78a7e8", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 2.25, flip: true, accent: "#dceaff", pattern: "scales", motion: "hero", stretch: 1.25 },
-    { id: "crystal_smelt", zone: "aurora", name: "冰晶银鱼", tier: "normal", basePrice: 1, color: "#a8f4ff", image: "assets/fish/kenney/Vector/fish_grey_long_a.svg", imageScale: 1.62, flip: false, accent: "#f2ffff", pattern: "crystal", motion: "school", glow: 0.25 },
-    { id: "aurora_cod", zone: "aurora", name: "极光鳕", tier: "normal", basePrice: 1, color: "#71d8d1", image: "assets/fish/kenney/Vector/fish_green.svg", imageScale: 1.8, flip: true, accent: "#bdfff3", pattern: "aurora", motion: "steady", glow: 0.2 },
-    { id: "phosphor_ray", zone: "aurora", name: "磷光魟", tier: "normal", basePrice: 1, color: "#70b9ff", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 2.02, flip: false, accent: "#d8f4ff", pattern: "glow", motion: "glide", glow: 0.35 },
-    { id: "cobalt_marlin", zone: "aurora", name: "幽蓝旗鱼", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#3f91ff", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 2.08, flip: true, accent: "#b9e4ff", pattern: "stripe", motion: "fast", stretch: 1.26, glow: 0.45 },
-    { id: "aurora_dragon_eel", zone: "aurora", name: "极光龙鳗", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#71f2cd", image: "assets/fish/kenney/Vector/fish_grey_long_b.svg", imageScale: 2.02, flip: false, accent: "#e0fff6", pattern: "aurora", motion: "ribbon", stretch: 1.42, glow: 0.5 },
-    { id: "sky_jelly", zone: "aurora", name: "天穹水母", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#d7b8ff", image: "assets/fish/detail/purple-fish-card.png", imageScale: 1.48, flip: true, accent: "#ffffff", pattern: "stars", motion: "drift", glow: 0.8, detail: true },
-    { id: "magma_bass", zone: "rift", name: "熔纹鲈", tier: "normal", basePrice: 1, color: "#e2774a", image: "assets/fish/kenney/Vector/fish_orange.svg", imageScale: 1.72, flip: false, accent: "#ffd29a", pattern: "lava", motion: "steady", glow: 0.28 },
-    { id: "blacksmoke_eel", zone: "rift", name: "黑烟鳗", tier: "normal", basePrice: 1, color: "#7b6787", image: "assets/fish/kenney/Vector/fish_grey_long_b.svg", imageScale: 1.88, flip: true, accent: "#d4cae2", pattern: "smoke", motion: "ribbon", stretch: 1.38 },
-    { id: "flame_marlin", zone: "rift", name: "火纹马林", tier: "normal", basePrice: 1, color: "#ff8757", image: "assets/fish/kenney/Vector/fish_red.svg", imageScale: 2.05, flip: false, accent: "#ffe0b0", pattern: "lava", motion: "fast", stretch: 1.25, glow: 0.34 },
-    { id: "ember_snapper", zone: "rift", name: "熔心鲷", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#ff6745", image: "assets/fish/kenney/Vector/fish_red.svg", imageScale: 1.92, flip: true, accent: "#fff0bf", pattern: "ember", motion: "steady", glow: 0.55 },
-    { id: "lava_goblin_shark", zone: "rift", name: "熔岩鬼鲛", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#c64d35", image: "assets/fish/kenney/Vector/fish_brown.svg", imageScale: 2.12, flip: false, accent: "#ffd27d", pattern: "lava", motion: "glide", stretch: 1.2, glow: 0.62 },
-    { id: "primordial_whalefish", zone: "rift", name: "太古炎鲸", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#ffb15c", image: "assets/fish/detail/aqua-fish-card.png", imageScale: 2.18, flip: true, accent: "#fff0c8", pattern: "ember", motion: "hero", stretch: 1.3, glow: 0.9, detail: true },
-    { id: "relic_damselfish", zone: "city", name: "遗迹雀鲷", tier: "normal", basePrice: 1, color: "#7dc6b8", image: "assets/fish/kenney/Vector/fish_green.svg", imageScale: 1.72, flip: false, accent: "#d9fff4", pattern: "scales", motion: "steady" },
-    { id: "titanium_barracuda", zone: "city", name: "钛壳梭鱼", tier: "normal", basePrice: 1, color: "#9fb4c9", image: "assets/fish/kenney/Vector/fish_grey_long_b.svg", imageScale: 2.04, flip: true, accent: "#f0fbff", pattern: "circuit", motion: "fast", stretch: 1.34, glow: 0.35 },
-    { id: "blue_steel_pomfret", zone: "city", name: "蓝钢鲳", tier: "normal", basePrice: 1, color: "#769fe5", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 1.96, flip: false, accent: "#dceaff", pattern: "scales", motion: "heavy", glow: 0.25 },
-    { id: "watcher_swordfish", zone: "city", name: "守望剑鱼", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#5fb5e8", image: "assets/fish/kenney/Vector/fish_grey.svg", imageScale: 2.16, flip: true, accent: "#d9f5ff", pattern: "circuit", motion: "fast", stretch: 1.38, glow: 0.55 },
-    { id: "mech_ghost_shark", zone: "city", name: "机械幽灵鲨", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#7f88b8", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 2.24, flip: false, accent: "#d8ddff", pattern: "circuit", motion: "glide", stretch: 1.28, glow: 0.62 },
-    { id: "abyss_core", zone: "city", name: "深海智核", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#88ffe8", image: "assets/fish/detail/aqua-fish-card.png", imageScale: 1.62, flip: true, accent: "#ffffff", pattern: "core", motion: "drift", glow: 1.0, detail: true },
-    { id: "stardust_sardine", zone: "void", name: "星尘沙丁", tier: "normal", basePrice: 1, color: "#b7d0ff", image: "assets/fish/kenney/Vector/fish_grey_long_a.svg", imageScale: 1.54, flip: false, accent: "#ffffff", pattern: "stars", motion: "school", glow: 0.38 },
-    { id: "phantom_moon_ray", zone: "void", name: "幻月鳐", tier: "normal", basePrice: 1, color: "#b69cff", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 2.08, flip: true, accent: "#f3ecff", pattern: "moon", motion: "glide", stretch: 1.1, glow: 0.45 },
-    { id: "void_tuna", zone: "void", name: "虚空金枪", tier: "normal", basePrice: 1, color: "#6f7dff", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 2.02, flip: false, accent: "#e5e8ff", pattern: "void", motion: "fast", stretch: 1.26, glow: 0.5 },
-    { id: "gravity_oarfish", zone: "void", name: "重力皇带", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#c9b8ff", image: "assets/fish/kenney/Vector/fish_grey_long_b.svg", imageScale: 2.28, flip: true, accent: "#ffffff", pattern: "gravity", motion: "ribbon", stretch: 1.5, glow: 0.7 },
-    { id: "void_whale", zone: "void", name: "归墟龙鲸", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#728cff", image: "assets/fish/kenney/Vector/fish_blue.svg", imageScale: 2.3, flip: false, accent: "#dce6ff", pattern: "void", motion: "hero", stretch: 1.32, glow: 0.75 },
-    { id: "genesis_whale", zone: "void", name: "创世星鲸", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#e8ddff", image: "assets/fish/detail/purple-fish-card.png", imageScale: 2.45, flip: true, accent: "#ffffff", pattern: "constellation", motion: "hero", stretch: 1.38, glow: 1.0, detail: true }
+    { id: "silver_scad", zone: "shallow", name: "银鲹", tier: "normal", basePrice: 1, color: "#a8edf2", imageScale: 1.65, flip: false, accent: "#eaffff", pattern: "stripe", motion: "slim" },
+    { id: "sardine", zone: "shallow", name: "沙丁鱼", tier: "normal", basePrice: 1, color: "#88dce8", imageScale: 1.52, flip: false, accent: "#f4ffff", pattern: "none", motion: "school" },
+    { id: "spotted_bream", zone: "shallow", name: "斑石鲷", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#68e1c1", imageScale: 1.68, flip: true, accent: "#baffdf", pattern: "spots", motion: "steady" },
+    { id: "moon_carp", zone: "shallow", name: "月光鲤", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#ffe28f", imageScale: 1.92, flip: false, accent: "#fff1a6", pattern: "moon", motion: "hero", detail: true },
+    { id: "red_snapper", zone: "reef", name: "红鳍笛鲷", tier: "normal", basePrice: 1, color: "#ff9e82", imageScale: 1.68, flip: true, accent: "#ffd2c2", pattern: "scales", motion: "steady" },
+    { id: "grouper", zone: "reef", name: "礁石斑鱼", tier: "normal", basePrice: 1, color: "#c6a57c", imageScale: 1.82, flip: false, accent: "#f2d6a8", pattern: "spots", motion: "heavy" },
+    { id: "blue_spotted_ray", zone: "reef", name: "蓝点鲛", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#63b9ff", imageScale: 1.92, flip: true, accent: "#c4ecff", pattern: "spots", motion: "glide" },
+    { id: "coral_dragon", zone: "reef", name: "珊瑚龙鱼", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#ffb5d0", imageScale: 1.3, flip: true, accent: "#ffd9e7", pattern: "coral", motion: "hero", detail: true },
+    { id: "deep_cod", zone: "deep", name: "深海鳕", tier: "normal", basePrice: 1, color: "#9cb7c9", imageScale: 1.08, flip: false, accent: "#d9f3ff", pattern: "none", motion: "steady" },
+    { id: "bluefin_tuna", zone: "deep", name: "蓝鳍金枪鱼", tier: "normal", basePrice: 1, color: "#6ba9d7", imageScale: 1.92, flip: true, accent: "#bde8ff", pattern: "stripe", motion: "fast" },
+    { id: "oarfish", zone: "deep", name: "皇带鱼", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#c8e7f5", imageScale: 1.92, flip: false, accent: "#f5fbff", pattern: "ribbon", motion: "ribbon", stretch: 1.28 },
+    { id: "lanternfish", zone: "deep", name: "灯笼巨口鱼", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#b6ff8f", imageScale: 1.4, flip: true, accent: "#d8ffb4", pattern: "glow", motion: "hero", detail: true },
+    { id: "abyss_eel", zone: "abyss", name: "深渊鳗", tier: "normal", basePrice: 1, color: "#7286ad", imageScale: 1.4, flip: false, accent: "#b8c6ef", pattern: "ribbon", motion: "ribbon", stretch: 1.35 },
+    { id: "black_sea_bream", zone: "abyss", name: "黑棘鲷", tier: "normal", basePrice: 1, color: "#8994ad", imageScale: 1.92, flip: true, accent: "#c2cce6", pattern: "scales", motion: "heavy" },
+    { id: "ghost_shark", zone: "abyss", name: "幽灵鲨", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#93b6ff", imageScale: 2, flip: false, accent: "#d8e6ff", pattern: "ghost", motion: "glide", stretch: 1.18 },
+    { id: "starlight_whale", zone: "abyss", name: "星辉鲸", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#e4d5ff", imageScale: 1.7, flip: true, accent: "#ffffff", pattern: "stars", motion: "hero", detail: true },
+    { id: "prism_guppy", zone: "shallow", name: "棱镜鳉鱼", tier: "normal", basePrice: 1, color: "#7debc6", imageScale: 1.6, flip: false, accent: "#d8fff2", pattern: "stripe", motion: "school" },
+    { id: "lagoon_pike", zone: "shallow", name: "潟湖狗鱼", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#8ad4ff", imageScale: 1.72, flip: true, accent: "#dff7ff", pattern: "spots", motion: "fast", stretch: 1.18 },
+    { id: "neon_lionfish", zone: "reef", name: "霓虹狮子鱼", tier: "normal", basePrice: 1, color: "#ff9a62", imageScale: 1.68, flip: false, accent: "#ffe0a0", pattern: "stripe", motion: "steady" },
+    { id: "crystal_turtle", zone: "reef", name: "水晶海龟", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#72e3ca", imageScale: 1.74, flip: true, accent: "#d9fff8", pattern: "scales", motion: "heavy" },
+    { id: "gloom_sword", zone: "deep", name: "幽暗剑鱼", tier: "normal", basePrice: 1, color: "#7ea8c8", imageScale: 1.82, flip: false, accent: "#cfefff", pattern: "stripe", motion: "fast", stretch: 1.2 },
+    { id: "plasma_manta", zone: "deep", name: "等离子鳐", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#997eff", imageScale: 2.05, flip: true, accent: "#ddd4ff", pattern: "glow", motion: "glide", stretch: 1.28 },
+    { id: "nebula_eel", zone: "abyss", name: "星云鳗", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#825fff", imageScale: 1.9, flip: false, accent: "#e3dcff", pattern: "stars", motion: "ribbon", stretch: 1.35 },
+    { id: "titan_whale", zone: "abyss", name: "泰坦鲸", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#78a7e8", imageScale: 2.25, flip: true, accent: "#dceaff", pattern: "scales", motion: "hero", stretch: 1.25 },
+    { id: "crystal_smelt", zone: "aurora", name: "冰晶银鱼", tier: "normal", basePrice: 1, color: "#a8f4ff", imageScale: 1.62, flip: false, accent: "#f2ffff", pattern: "crystal", motion: "school", glow: 0.25 },
+    { id: "aurora_cod", zone: "aurora", name: "极光鳕", tier: "normal", basePrice: 1, color: "#71d8d1", imageScale: 1.8, flip: true, accent: "#bdfff3", pattern: "aurora", motion: "steady", glow: 0.2 },
+    { id: "phosphor_ray", zone: "aurora", name: "磷光魟", tier: "normal", basePrice: 1, color: "#70b9ff", imageScale: 2.02, flip: false, accent: "#d8f4ff", pattern: "glow", motion: "glide", glow: 0.35 },
+    { id: "cobalt_marlin", zone: "aurora", name: "幽蓝旗鱼", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#3f91ff", imageScale: 2.08, flip: true, accent: "#b9e4ff", pattern: "stripe", motion: "fast", stretch: 1.26, glow: 0.45 },
+    { id: "aurora_dragon_eel", zone: "aurora", name: "极光龙鳗", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#71f2cd", imageScale: 2.02, flip: false, accent: "#e0fff6", pattern: "aurora", motion: "ribbon", stretch: 1.42, glow: 0.5 },
+    { id: "sky_jelly", zone: "aurora", name: "天穹水母", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#d7b8ff", imageScale: 1.48, flip: true, accent: "#ffffff", pattern: "stars", motion: "drift", glow: 0.8, detail: true },
+    { id: "magma_bass", zone: "rift", name: "熔纹鲈", tier: "normal", basePrice: 1, color: "#e2774a", imageScale: 1.72, flip: false, accent: "#ffd29a", pattern: "lava", motion: "steady", glow: 0.28 },
+    { id: "blacksmoke_eel", zone: "rift", name: "黑烟鳗", tier: "normal", basePrice: 1, color: "#7b6787", imageScale: 1.88, flip: true, accent: "#d4cae2", pattern: "smoke", motion: "ribbon", stretch: 1.38 },
+    { id: "flame_marlin", zone: "rift", name: "火纹马林", tier: "normal", basePrice: 1, color: "#ff8757", imageScale: 2.05, flip: false, accent: "#ffe0b0", pattern: "lava", motion: "fast", stretch: 1.25, glow: 0.34 },
+    { id: "ember_snapper", zone: "rift", name: "熔心鲷", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#ff6745", imageScale: 1.92, flip: true, accent: "#fff0bf", pattern: "ember", motion: "steady", glow: 0.55 },
+    { id: "lava_goblin_shark", zone: "rift", name: "熔岩鬼鲛", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#c64d35", imageScale: 2.12, flip: false, accent: "#ffd27d", pattern: "lava", motion: "glide", stretch: 1.2, glow: 0.62 },
+    { id: "primordial_whalefish", zone: "rift", name: "太古炎鲸", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#ffb15c", imageScale: 2.18, flip: true, accent: "#fff0c8", pattern: "ember", motion: "hero", stretch: 1.3, glow: 0.9, detail: true },
+    { id: "relic_damselfish", zone: "city", name: "遗迹雀鲷", tier: "normal", basePrice: 1, color: "#7dc6b8", imageScale: 1.72, flip: false, accent: "#d9fff4", pattern: "scales", motion: "steady" },
+    { id: "titanium_barracuda", zone: "city", name: "钛壳梭鱼", tier: "normal", basePrice: 1, color: "#9fb4c9", imageScale: 2.04, flip: true, accent: "#f0fbff", pattern: "circuit", motion: "fast", stretch: 1.34, glow: 0.35 },
+    { id: "blue_steel_pomfret", zone: "city", name: "蓝钢鲳", tier: "normal", basePrice: 1, color: "#769fe5", imageScale: 1.96, flip: false, accent: "#dceaff", pattern: "scales", motion: "heavy", glow: 0.25 },
+    { id: "watcher_swordfish", zone: "city", name: "守望剑鱼", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#5fb5e8", imageScale: 2.16, flip: true, accent: "#d9f5ff", pattern: "circuit", motion: "fast", stretch: 1.38, glow: 0.55 },
+    { id: "mech_ghost_shark", zone: "city", name: "机械幽灵鲨", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#7f88b8", imageScale: 2.24, flip: false, accent: "#d8ddff", pattern: "circuit", motion: "glide", stretch: 1.28, glow: 0.62 },
+    { id: "abyss_core", zone: "city", name: "深海智核", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#88ffe8", imageScale: 1.62, flip: true, accent: "#ffffff", pattern: "core", motion: "drift", glow: 1.0, detail: true },
+    { id: "stardust_sardine", zone: "void", name: "星尘沙丁", tier: "normal", basePrice: 1, color: "#b7d0ff", imageScale: 1.54, flip: false, accent: "#ffffff", pattern: "stars", motion: "school", glow: 0.38 },
+    { id: "phantom_moon_ray", zone: "void", name: "幻月鳐", tier: "normal", basePrice: 1, color: "#b69cff", imageScale: 2.08, flip: true, accent: "#f3ecff", pattern: "moon", motion: "glide", stretch: 1.1, glow: 0.45 },
+    { id: "void_tuna", zone: "void", name: "虚空金枪", tier: "normal", basePrice: 1, color: "#6f7dff", imageScale: 2.02, flip: false, accent: "#e5e8ff", pattern: "void", motion: "fast", stretch: 1.26, glow: 0.5 },
+    { id: "gravity_oarfish", zone: "void", name: "重力皇带", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#c9b8ff", imageScale: 2.28, flip: true, accent: "#ffffff", pattern: "gravity", motion: "ribbon", stretch: 1.5, glow: 0.7 },
+    { id: "void_whale", zone: "void", name: "归墟龙鲸", tier: "rare", basePrice: RARE_BASE_VALUE, color: "#728cff", imageScale: 2.3, flip: false, accent: "#dce6ff", pattern: "void", motion: "hero", stretch: 1.32, glow: 0.75 },
+    { id: "genesis_whale", zone: "void", name: "创世星鲸", tier: "legendary", basePrice: LEGENDARY_BASE_VALUE, color: "#e8ddff", imageScale: 2.45, flip: true, accent: "#ffffff", pattern: "constellation", motion: "hero", stretch: 1.38, glow: 1.0, detail: true }
   ];
+
+  const extraSpeciesNames = {
+    trench: ["熔光银梭", "炽纹鳕", "虚空鳞鲷", "赤潮旗鱼", "熔晶龙鳗", "深渊炽鲸"],
+    shipwreck: ["锈甲沙丁", "沉锚石斑", "蓝辉鬼鲳", "残骸剑鱼", "黑帆幽灵鲨", "铁棺皇带"],
+    temple: ["祭祀小丑鱼", "祭司雀鲷", "神谕魟", "神殿旗鱼", "海神龙鳗", "遗迹圣鲸"],
+    blacktide: ["黑潮银鱼", "断层鳕", "墨色魟", "夜幕马林", "黑潮鬼鲛", "永夜鲸"],
+    star_grave: ["星骸沙丁", "陨铁鲷", "星尘魟", "银河旗鱼", "星墓龙鳗", "墓海星鲸"],
+    time_sea: ["静海银鱼", "时针鳕", "回溯魟", "静滞马林", "时间龙鳗", "永恒水母"],
+    throne: ["王座鲷", "王冠鲳", "深潮魟", "王庭剑鱼", "王座鬼鲛", "深渊王鲸"],
+    origin: ["原点沙丁", "溯源鲷", "潮汐魟", "星轨旗鱼", "创世龙鳗", "潮汐祖鲸"]
+  };
+  const extraSpeciesPalette = ["#67e8f9", "#63e6a6", "#ffd166", "#b69cff", "#ff8ea8", "#8ce6ff", "#ff9d5c", "#d7b8ff"];
+  Object.entries(extraSpeciesNames).forEach(([zoneId, names], zoneIndex) => {
+    const tiers = ["normal", "normal", "normal", "rare", "rare", "legendary"];
+    names.forEach((name, index) => {
+      const tier = tiers[index];
+      species.push({ id: zoneId + "_" + (index + 1), zone: zoneId, name, tier, basePrice: tier === "legendary" ? LEGENDARY_BASE_VALUE : tier === "rare" ? RARE_BASE_VALUE : 1, color: extraSpeciesPalette[(zoneIndex + index) % extraSpeciesPalette.length], accent: "#ffffff", pattern: ["scales", "stripes", "spots", "crystal", "glow", "constellation"][index], motion: ["school", "steady", "glide", "fast", "ribbon", "hero"][index], glow: tier === "legendary" ? 0.8 : tier === "rare" ? 0.35 : 0.12 });
+    });
+  });
 
   const branches = [
     {
@@ -553,6 +636,24 @@
   extraNodes.forEach((entry) => {
     const branch = byId(branches, entry.branch);
     if (branch) branch.nodes.push(entry.node);
+  });
+  const incrementalBranchDefs = [
+    { id: "dive_survival", name: "深潜生存", label: "深潜生存", color: "#74d7ff", statKeys: ["hotspotDurationPct", "capacity", "bossPowerPct"], base: 120 },
+    { id: "trade_economy", name: "港口贸易", label: "港口贸易", color: "#ffd166", statKeys: ["sellPct", "allYieldPct", "eventRate"], base: 150 },
+    { id: "ecology_control", name: "生态控制", label: "生态控制", color: "#63e6a6", statKeys: ["hotspotRadiusPct", "rareChance", "legendChance"], base: 190 },
+    { id: "star_protocol", name: "星核协议", label: "星核协议", color: "#b69cff", statKeys: ["codexYieldPct", "legendChance", "startingGold"], base: 240 },
+    { id: "salvage_engineering", name: "打捞工程", label: "打捞工程", color: "#ff9d5c", statKeys: ["gearDropPct", "processPct", "skillHastePct"], base: 300 }
+  ];
+  incrementalBranchDefs.forEach((branchDef, branchIndex) => {
+    const nodes = Array.from({ length: 16 }, (_, index) => {
+      const tier = Math.floor(index / 4) + 1;
+      const statKey = branchDef.statKeys[index % branchDef.statKeys.length];
+      const value = statKey === "startingGold" ? 250 * (Math.floor(index / 4) + 1) : statKey === "capacity" ? 12 + index : 0.004 + index * 0.0008;
+      const id = `${branchDef.id}_${index + 1}`;
+      const previous = index === 0 ? null : { id: `${branchDef.id}_${index}`, level: index % 4 === 0 ? 1 : 0 };
+      return { id, tier, name: `${branchDef.name} ${index + 1}`, max: index % 4 === 3 ? 1 : 10, baseCost: Math.round(branchDef.base * Math.pow(1.62, index)), prerequisite: previous, description: `${branchDef.name}节点 ${index + 1}，提升深潜、贸易或长期生产效率。`, stat: { [statKey]: value }, effect: (level) => `${statKey} ${level ? `+${(level * value).toFixed(statKey === "capacity" || statKey === "startingGold" ? 0 : 1)}` : "尚未激活"} · 升级后 ${value}` };
+    });
+    branches.push({ id: branchDef.id, name: branchDef.name, label: branchDef.label, color: branchDef.color, nodes });
   });
   allNodes = branches.flatMap((branch) => branch.nodes);
   allNodes.forEach((node) => {
@@ -809,6 +910,17 @@
     void: { name: "归墟之主", threshold: 1500000, icon: "✹", phases: ["声呐追踪", "护甲破译", "终结收网"] }
   };
 
+  Object.assign(BOSS_DEFS, {
+    trench: { name: "熔光渊主", threshold: 4000000, icon: "☄", phases: ["声呐追踪", "护甲破译", "终结收网"] },
+    shipwreck: { name: "沉船吞噬者", threshold: 10000000, icon: "▣", phases: ["声呐追踪", "护甲破译", "终结收网"] },
+    temple: { name: "海神残像", threshold: 25000000, icon: "⌘", phases: ["声呐追踪", "护甲破译", "终结收网"] },
+    blacktide: { name: "黑潮母体", threshold: 60000000, icon: "◒", phases: ["声呐追踪", "护甲破译", "终结收网"] },
+    star_grave: { name: "星骸巨鲸", threshold: 150000000, icon: "✹", phases: ["声呐追踪", "护甲破译", "终结收网"] },
+    time_sea: { name: "静海时皇", threshold: 350000000, icon: "⌛", phases: ["声呐追踪", "护甲破译", "终结收网"] },
+    throne: { name: "深海王座守卫", threshold: 800000000, icon: "⬢", phases: ["声呐追踪", "护甲破译", "终结收网"] },
+    origin: { name: "潮汐原点", threshold: 2000000000, icon: "✦", phases: ["声呐追踪", "护甲破译", "终结收网"] }
+  });
+
   const BOSS_MECHANICS = {
     shallow: { name: "礁岩冲撞", icon: "▰", description: "礁岩会让声呐偏移，第一阶段需要多完成 1 次弱点命中。", hints: ["弱点追踪更久", "护甲破碎会释放冲击波", "终结窗口稳定"] },
     reef: { name: "珊瑚召唤", icon: "◈", description: "珊瑚幻影会混入热点，只有真正的金色弱点才算追踪成功。", hints: ["避开珊瑚幻影，锁定真实弱点", "护甲会吸收普通命中", "终结窗口稳定"] },
@@ -833,11 +945,22 @@
     { id: "half_codex", title: "生物图谱", description: "发现 24 种鱼类", target: 24, progress: () => getDiscoveredCount(), reward: { gold: 2000, crystals: 4 } },
     { id: "first_ascension", title: "深渊回声", description: "完成 1 次深渊跃迁", target: 1, progress: () => Number(state.ascension?.count) || 0, reward: { crystals: 8, alloy: 8 } }
   ];
+  Object.assign(BOSS_MECHANICS, {
+    trench: { name: "熔光喷发", icon: "☄", description: "熔光喷发会叠加船体压力，持续命中热点才会压制。", hints: ["热点命中压制喷发", "高稀有鱼破甲", "终结窗口较短"] },
+    shipwreck: { name: "残骸风暴", icon: "▣", description: "沉船碎片会遮挡声呐，连续切换目标更安全。", hints: ["不要连续追踪同一目标", "打捞材料提升护甲伤害", "终结窗口稳定"] },
+    temple: { name: "神谕镜像", icon: "⌘", description: "神谕会复制弱点，只有真实回波计入进度。", hints: ["锁定金色真实回波", "稀有鱼击穿护甲", "终结窗口稳定"] },
+    blacktide: { name: "黑潮侵蚀", icon: "◒", description: "黑潮会持续消耗氧气，尽快完成阶段突破。", hints: ["减少无效行动", "热点与稀有鱼交替", "终结窗口较短"] },
+    star_grave: { name: "星骸重力", icon: "✹", description: "重力波动会改变节点风险，高风险选择收益更高。", hints: ["高风险节点增加进度", "护甲需要传说信号", "终结窗口稳定"] },
+    time_sea: { name: "时间迟滞", icon: "⌛", description: "行动节奏会变慢，需要提前规划终结窗口。", hints: ["提前选择下一行动", "稀有鱼增加护甲进度", "窗口会延迟"] },
+    throne: { name: "王座威压", icon: "⬢", description: "王座威压降低自动效率，手动行动才能击破核心。", hints: ["自动贡献降低", "高稀有鱼击穿护甲", "终结目标增加"] },
+    origin: { name: "原点循环", icon: "✦", description: "原点会把阶段进度回收，必须连续完成终结。", hints: ["保持连续有效命中", "使用星核协议增强", "终结目标增加"] }
+  });
+
   function createDefaultState() {
     const upgrades = {};
     allNodes.forEach((node) => { upgrades[node.id] = 0; });
     return {
-      version: 7,
+      version: 8,
       gold: 0,
       currentZone: "shallow",
       unlockedZones: ["shallow"],
@@ -876,6 +999,11 @@
         skillMode: "auto",
         discovered: {}
       },
+      resources: { alloy: 0, crystals: 0, starCores: 0, samples: 0 },
+      dive: { active: null, completed: 0, records: {}, runCounter: 0 },
+      fleet: { level: 0, mode: "safe", autoDive: false, lastOffline: null },
+      bossReady: Object.fromEntries(zones.map((zone) => [zone.id, false])),
+      textLog: [],
       sonar: { hotspots: [], nextSpawnAt: Date.now() + 12000, history: [] },
       expedition: { active: null, completed: 0, bestScore: 0, crewMode: "balanced", masteryXp: 0, masteryLevel: 0, log: [] },
       crew: { assigned: ["runi"], lastOfflineGain: 0 },
@@ -890,7 +1018,7 @@
       bossTutorialSeen: false,
       bossMaterials: { sonarShard: 0, armorPlate: 0, voidHeart: 0 },
       bossRecords: {},
-      ui: { keyGuideCollapsed: false, guideSeen: false, contractTab: "daily", autofishEnabled: false, performanceProfile: "auto", expandedBranch: "net_mastery", expandedGroup: 0, equipmentTab: "equipped", bossBannerExpanded: false, leftPanelOpen: false, rightPanelOpen: false, leftPanelPinned: false, rightPanelPinned: false }
+      ui: { keyGuideCollapsed: false, guideSeen: false, contractTab: "daily", autofishEnabled: false, performanceProfile: "auto", textMode: true, textPage: "dive", expandedBranch: "net_mastery", expandedGroup: 0, equipmentTab: "equipped", bossBannerExpanded: false, leftPanelOpen: false, rightPanelOpen: false, leftPanelPinned: false, rightPanelPinned: false }
     };
   }
 
@@ -905,7 +1033,9 @@
   let autoCastTimer = null;
   let netImpactTimer = null;
   let lastNormalImpactAt = 0;
+  let lastDiveAutoAt = 0;
   let cachedHoldTarget = null;
+  let selectedTextHotspotId = null;
   let saveFlashTimer = null;
   let eventBannerTimer = null;
   let zoneScanTimer = null;
@@ -1263,6 +1393,187 @@
     if (state.crew) state.crew.lastOfflineGain = gain;
     return gain;
   }
+  function getDiveZone() { return getZone(state.currentZone); }
+
+  function buildDiveRoute() {
+    const zone = getDiveZone();
+    const depth = Math.max(0, zones.findIndex((item) => item.id === zone.id));
+    const goldBase = 22 + depth * 18;
+    const nodes = [
+      { id: "fish", type: "fish", title: "鱼群回声", text: "声呐捕捉到一片稳定鱼群。", choices: [{ id: "cast", label: "下网捕捞", effect: { oxygen: -8, gold: goldBase, samples: 1, catchTier: "normal", catchCount: 4 } }, { id: "scan", label: "先扫描轮廓", effect: { oxygen: -3, samples: 2 } }] },
+      { id: "rare", type: "rare", title: "稀有回响", text: "较弱的金色信号短暂出现在深层。", choices: [{ id: "track", label: "追踪稀有信号", effect: { oxygen: -12, gold: goldBase * 2, samples: 3, catchTier: "rare", catchCount: 2 } }, { id: "ignore", label: "保持航线", effect: { oxygen: -2, hull: 1 } }] },
+      { id: "wreck", type: "wreck", title: "沉船残骸", text: "旧舰体仍残留合金与资料。", choices: [{ id: "salvage", label: "打捞合金", effect: { oxygen: -10, hull: -6, alloy: 3 + depth } }, { id: "data", label: "提取航行资料", effect: { oxygen: -7, crystals: 1 } }] },
+      { id: "anomaly", type: "anomaly", title: "生态异常", text: "鱼群正在受惊，继续推进会增加风险。", choices: [{ id: "calm", label: "放慢并观察", effect: { oxygen: -5, samples: 2 } }, { id: "push", label: "强行穿越", effect: { oxygen: -8, hull: -10, gold: goldBase * 3 } }] },
+      { id: "merchant", type: "merchant", title: "漂流商船", text: "一艘无人商船愿意交换补给。", choices: [{ id: "trade", label: "出售样本换补给", effect: { oxygen: 14, samples: -2 } }, { id: "escort", label: "护送商船", effect: { oxygen: -9, alloy: 2, crystals: 1 } }] },
+      { id: "return", type: "return", title: "返航坐标", text: "港口信标已进入声呐范围。", choices: [{ id: "return", label: "安全返航并结算", effect: { bank: true } }, { id: "deeper", label: "继续下潜", effect: { oxygen: -5, gold: goldBase, samples: 1 } }] }
+    ];
+    if (state.bossReady?.[zone.id]) nodes.splice(4, 0, { id: "boss", type: "boss", title: `${BOSS_DEFS[zone.id]?.name || "区域首领"}信号`, text: "首领信号已经稳定，可以进入猎杀。", choices: [{ id: "challenge", label: "开始首领挑战", effect: { boss: true } }, { id: "avoid", label: "暂时绕行", effect: { oxygen: -4 } }] });
+    return nodes;
+  }
+
+  function startDive() {
+    if (state.dive.active) return;
+    const zone = getDiveZone();
+    state.dive.runCounter = Number(state.dive.runCounter || 0) + 1;
+    const route = buildDiveRoute();
+    state.dive.active = { zoneId: zone.id, run: state.dive.runCounter, startedAt: Date.now(), oxygen: 100, hull: 100, cargo: 0, cargoMax: Math.max(12, Math.round(getCapacity() * 0.35)), nodeIndex: 0, route, loot: { gold: 0, alloy: 0, crystals: 0, samples: 0, starCores: 0, fish: {} }, score: 0, log: [] };
+    appendTextLog(`开始深潜：${zone.name} · 路线 ${route.length} 节点`, "info");
+    updateAllUI();
+    saveGame(true);
+  }
+
+  function getDiveNode() {
+    const active = state.dive?.active;
+    return active ? active.route?.[active.nodeIndex] || null : null;
+  }
+
+  function addDiveCatch(tier = "normal", count = 1) {
+    const active = state.dive?.active;
+    if (!active) return [];
+    const pool = species.filter((fish) => fish.zone === active.zoneId && fish.tier === tier);
+    if (!pool.length) return [];
+    const caught = [];
+    const amount = Math.max(1, Math.round(Number(count) || 1));
+    for (let i = 0; i < amount; i += 1) {
+      const fish = pool[Math.floor(Math.random() * pool.length)];
+      active.loot.fish[fish.id] = Number(active.loot.fish[fish.id] || 0) + 1;
+      active.cargo = Math.min(active.cargoMax, active.cargo + 1);
+      active.score += fish.tier === "legendary" ? 120 : fish.tier === "rare" ? 45 : 12;
+      caught.push(fish);
+    }
+    appendTextLog(`捕获${tier === "legendary" ? "传说" : tier === "rare" ? "稀有" : "普通"}鱼：${caught.map((fish) => fish.name).join("、")}`, tier === "legendary" ? "legendary" : tier === "rare" ? "rare" : "info");
+    return caught;
+  }
+  function applyDiveEffect(effect = {}) {
+    const active = state.dive?.active;
+    if (!active) return;
+    if (effect.oxygen) active.oxygen = clamp(active.oxygen + Number(effect.oxygen), 0, 100);
+    if (effect.hull) active.hull = clamp(active.hull + Number(effect.hull), 0, 100);
+    if (effect.catchTier) addDiveCatch(effect.catchTier, effect.catchCount || 1);
+    if (effect.gold) { active.loot.gold += Number(effect.gold) || 0; active.score += Math.max(0, Math.round(Number(effect.gold) || 0)); }
+    if (effect.alloy) active.loot.alloy += Number(effect.alloy) || 0;
+    if (effect.crystals) active.loot.crystals += Number(effect.crystals) || 0;
+    if (effect.samples) active.loot.samples = Math.max(0, active.loot.samples + Number(effect.samples));
+    if (effect.starCores) active.loot.starCores += Number(effect.starCores) || 0;
+    if (effect.boss) startBossChallenge(active.zoneId);
+    if (effect.bank) { finishDive(true); return; }
+  }
+
+  function resolveDiveChoice(choiceId) {
+    const active = state.dive?.active;
+    const node = getDiveNode();
+    if (!active || !node) return;
+    const choice = node.choices.find((item) => item.id === choiceId);
+    if (!choice) return;
+    appendTextLog(`${node.title}：${choice.label}`, node.type === "boss" ? "danger" : node.type === "rare" ? "rare" : "info");
+    applyDiveEffect(choice.effect || {});
+    recordContract("dive", 1);
+    if (!state.dive.active) return;
+    if (active.oxygen <= 0 || active.hull <= 0) { appendTextLog("深潜失败：氧气或船体耗尽。本次未返航货物丢失。", "danger"); finishDive(false); return; }
+    active.nodeIndex += 1;
+    if (active.nodeIndex >= active.route.length) finishDive(true);
+    else updateAllUI();
+    saveGame(true);
+  }
+
+  function finishDive(success = false) {
+    const active = state.dive?.active;
+    if (!active) return;
+    if (success) {
+      const loot = active.loot || {};
+      state.gold += Number(loot.gold) || 0;
+      state.totalGoldEarned += Number(loot.gold) || 0;
+      addResource("alloy", Number(loot.alloy) || 0);
+      addResource("crystals", Number(loot.crystals) || 0);
+      addResource("samples", Number(loot.samples) || 0);
+      addResource("starCores", Number(loot.starCores) || 0);
+      Object.entries(loot.fish || {}).forEach(([fishId, count]) => { const fish = byId(species, fishId); if (fish) addFishToHold(fish, Number(count) || 0); });
+      state.dive.completed = Number(state.dive.completed || 0) + 1;
+      state.dive.records[active.zoneId] = Math.max(Number(state.dive.records[active.zoneId]) || 0, active.score);
+      appendTextLog(`安全返航：${getZone(active.zoneId).name} 得分 ${Math.round(active.score)}，收益 ${formatNumber(loot.gold || 0)} 金币。`, "rare");
+    } else {
+      appendTextLog(`深潜中断：${getZone(active.zoneId).name} 的未返航货物已丢失。永久进度保留。`, "danger");
+    }
+    state.dive.active = null;
+    updateAllUI();
+    saveGame(true);
+  }
+
+  function startBossChallenge(zoneId) {
+    state.bossReady[zoneId] = true;
+    if (!state.boss || state.boss.zone !== zoneId) {
+      const def = BOSS_DEFS[zoneId];
+      if (!def) return;
+      state.boss = { zone: zoneId, name: def.name, icon: def.icon, x: 50, y: 58, hotspotId: "text-boss", weakpointId: "text-boss", phase: 1, phaseProgress: 0, finisher: 0, finisherWindowUntil: 0, startedAt: Date.now(), finisherMisses: 0, perfectFinishers: 0, windowPerfect: true, windowAttempted: false, brokenParts: [], mechanicState: { lastKind: null, lastDecoyAt: 0 }, phaseBuff: null, active: true, expiresAt: Number.MAX_SAFE_INTEGER };
+    }
+    appendTextLog(`${BOSS_DEFS[zoneId]?.name || "首领"}已进入常驻挑战列表。`, "danger");
+    openModal("boss");
+  }
+
+  function renderDiveDashboard() {
+    if (!isTextMode() || !dom.textDashboard) return;
+    const active = state.dive?.active;
+    const zone = getDiveZone();
+    if (dom.textDashboardZone) dom.textDashboardZone.textContent = zone.name;
+    if (dom.textDashboardSubtitle) dom.textDashboardSubtitle.textContent = active ? `深潜行动 #${active.run} · ${active.route.length} 节点` : `深潜行动待命${state.bossReady?.[zone.id] ? " · 区域首领可挑战" : ""}`;
+    if (dom.diveOxygenMetric) dom.diveOxygenMetric.textContent = active ? `${Math.round(active.oxygen)}%` : "100%";
+    if (dom.diveHullMetric) dom.diveHullMetric.textContent = active ? `${Math.round(active.hull)}%` : "100%";
+    if (dom.diveCargoMetric) dom.diveCargoMetric.textContent = active ? `${Math.round(active.cargo)} / ${active.cargoMax}` : `0 / ${Math.max(12, Math.round(getCapacity() * 0.35))}`;
+    if (dom.diveScoreMetric) dom.diveScoreMetric.textContent = active ? String(Math.round(active.score)) : String(Number(state.dive.records[zone.id]) || 0);
+    const node = getDiveNode();
+    if (dom.textCastButton) dom.textCastButton.textContent = active ? "执行首选" : "开始深潜";
+    if (dom.castButton) dom.castButton.textContent = active ? "执行节点" : "开始深潜";
+    if (dom.diveNodeTitle) dom.diveNodeTitle.textContent = active ? `${node?.title || "航线终点"}` : "准备开始深潜";
+    if (dom.diveNodeText) dom.diveNodeText.textContent = active ? (node?.text || "返航坐标已锁定。") : "点击开始深潜，进入 5–8 个文字节点。失败只损失本局未返航货物。";
+    if (dom.diveNodeActions) {
+      if (!active) dom.diveNodeActions.innerHTML = `<button type="button" data-dive-start>开始深潜</button>`;
+      else dom.diveNodeActions.innerHTML = (node?.choices || []).map((choice) => `<button type="button" data-dive-choice="${choice.id}">${choice.label}</button>`).join("");
+    }
+    if (dom.fleetIncomeMetric) dom.fleetIncomeMetric.textContent = `${formatNumber(getFleetIncomePerSecond())} / 秒`;
+    if (dom.fleetOfflineMetric) dom.fleetOfflineMetric.textContent = `${getOfflineCapHours()} 小时`;
+    if (dom.fleetModeMetric) dom.fleetModeMetric.textContent = state.fleet.autoDive ? "保守巡航" : "手动深潜";
+    if (dom.sampleMetric) dom.sampleMetric.textContent = formatInteger(getResourceCount("samples"));
+  }
+
+  function runFleetTick(deltaSeconds) {
+    if (!state.fleet?.autoDive || state.dive?.active) return;
+    const seconds = clamp(Number(deltaSeconds) || 0, 0, 1.5);
+    const income = getFleetIncomePerSecond() * seconds;
+    if (income <= 0) return;
+    state.gold += income;
+    state.totalGoldEarned += income;
+    state.resources.samples = Math.max(0, Number(state.resources.samples) || 0) + income * 0.0002;
+    if (state.resources.samples > 1000000) state.resources.samples = 1000000;
+  }
+
+  function autoResolveDive(now) {
+    const active = state.dive?.active;
+    if (!active || !state.fleet?.autoDive || now - lastDiveAutoAt < 2400) return;
+    lastDiveAutoAt = now;
+    const node = getDiveNode();
+    if (!node) return;
+    const safe = node.choices.find((choice) => !["push", "challenge", "deeper"].includes(choice.id)) || node.choices[0];
+    resolveDiveChoice(safe.id);
+  }
+  function getFleetUpgradeCost() {
+    return Math.round(500 * Math.pow(1.8, Number(state.fleet?.level) || 0));
+  }
+
+  function upgradeFleet() {
+    const cost = getFleetUpgradeCost();
+    if (state.gold < cost) { showToast("金币不足", `舰队升级需要 ${formatNumber(cost)} 金币。`, "error"); return; }
+    state.gold -= cost;
+    state.fleet.level = Number(state.fleet.level || 0) + 1;
+    appendTextLog(`舰队等级提升至 ${state.fleet.level}，离线收益上限增加。`, "rare");
+    updateAllUI(); saveGame(true);
+  }
+  function getFleetIncomePerSecond() {
+    return Math.max(0, getAutoRate()) * expectedCatchCount() * expectedSpeciesValue() * getSaleMultiplier(false) * 0.12;
+  }
+
+  function getOfflineCapHours() {
+    return Math.min(72, 24 + (Number(state.fleet?.level) || 0) * 6 + (getLevel("ocean_fleet") > 0 ? 12 : 0));
+  }
   function startExpedition(routeId) {
     const route = getExpeditionRoute(routeId);
     if (state.expedition?.active) {
@@ -1420,14 +1731,18 @@
       totalNodeLevels: allNodes.reduce((sum, node) => sum + getLevel(node.id), 0),
       rareCaught: Number(state.rareCaught) || 0,
       legendaryCaught: Number(state.legendaryCaught) || 0,
-      totalFish: Number(state.totalFish) || 0
+      totalFish: Number(state.totalFish) || 0,
+      diveScore: Math.max(0, ...Object.values(state.dive?.records || {}).map((value) => Number(value) || 0)),
+      diveCompleted: Number(state.dive?.completed) || 0,
+      starCores: Math.floor(getResourceCount("starCores")),
+      samples: Math.floor(getResourceCount("samples"))
     };
   }
 
   function getCaptainScore() {
     const snapshot = getLeaderboardSnapshot();
     if (window.LeaderboardBridge?.calculateCaptainScore) return window.LeaderboardBridge.calculateCaptainScore(snapshot);
-    return Math.max(0, Math.floor(Math.log10(snapshot.totalGoldEarned + 10) * 120 + snapshot.unlockedZoneCount * 350 + snapshot.bossDefeated * 500 + snapshot.ascensionCount * 900 + snapshot.codexStars * 60 + snapshot.discoveredCount * 30 + snapshot.equipmentUnique * 35 + snapshot.totalNodeLevels * 8));
+    return Math.max(0, Math.floor(Math.log10(snapshot.totalGoldEarned + 10) * 120 + snapshot.unlockedZoneCount * 350 + snapshot.bossDefeated * 500 + snapshot.ascensionCount * 900 + snapshot.codexStars * 60 + snapshot.discoveredCount * 30 + snapshot.equipmentUnique * 35 + snapshot.totalNodeLevels * 8 + (snapshot.diveScore || 0) * 2 + (snapshot.starCores || 0) * 120 + (snapshot.samples || 0) * 2));
   }
 
   async function submitLeaderboardSnapshot(force = false) {
@@ -1488,7 +1803,7 @@
       try {
         const parsed = JSON.parse(String(reader.result || "{}"));
         if (!parsed || typeof parsed !== "object") throw new Error("invalid");
-        parsed.version = 7;
+        parsed.version = 8;
         localStorage.setItem(SAVE_KEY, JSON.stringify(parsed));
         showToast("存档导入成功", "页面即将刷新并读取导入进度。", "gold");
         window.setTimeout(() => location.reload(), 500);
@@ -1580,7 +1895,7 @@
       { id: "sell", type: "sell", title: "出售渔获获得金币", target: 1500 * Math.max(1, state.unlockedZones.length), reward: { crystals: 5, alloy: 5 } },
       { id: "process", type: "process", title: "加工渔获数量", target: 20 + Math.floor(seededValue(date + "c") * 60), reward: { crystals: 4, alloy: 6 } },
       { id: "hotspot", type: "hotspot", title: "命中声呐热点", target: 3 + Math.floor(seededValue(date + "d") * 4), reward: { crystals: 6, alloy: 8 } },
-      { id: "expedition", type: "expedition", title: "推进深渊航线节点", target: 2 + Math.floor(seededValue(date + "e") * 3), reward: { crystals: 5, alloy: 7 } },
+      { id: "dive", type: "dive", title: "推进深潜节点", target: 2 + Math.floor(seededValue(date + "e") * 3), reward: { crystals: 5, alloy: 7 } },
       { id: "boss", type: "boss", title: "击败巨兽信号", target: 1, reward: { crystals: 10, alloy: 12 } }
     ];
     state.contracts.tasks = pool.sort((a, b) => seededValue(date + a.id) - seededValue(date + b.id)).slice(0, 3);
@@ -1603,7 +1918,7 @@
       { id: "week_fish", type: "fish", title: "本周累计捕获鱼类", target: 1200, reward: { crystals: 18, alloy: 12 } },
       { id: "week_sell", type: "sell", title: "本周出售渔获收益", target: 120000 * Math.max(1, state.unlockedZones.length), reward: { crystals: 20, alloy: 14 } },
       { id: "week_hotspot", type: "hotspot", title: "本周命中声呐热点", target: 18, reward: { crystals: 22, alloy: 16 } },
-      { id: "week_expedition", type: "expedition", title: "本周推进航线节点", target: 12, reward: { crystals: 24, alloy: 18 } },
+      { id: "week_dive", type: "dive", title: "本周推进深潜节点", target: 12, reward: { crystals: 24, alloy: 18 } },
       { id: "week_boss", type: "boss", title: "本周击败巨兽信号", target: 2, reward: { crystals: 30, alloy: 20 } },
       { id: "week_forge", type: "forge", title: "本周完成巨兽熔铸", target: 1, reward: { crystals: 28, alloy: 24 } }
     ];
@@ -1730,6 +2045,12 @@
   }
 
   function findHotspotForCast(source) {
+    if (isTextMode() && source === "manual") {
+      const selected = (state.sonar.hotspots || []).find((spot) => spot.id === selectedTextHotspotId && spot.zone === state.currentZone);
+      if (selected) return { spot: selected, strength: 1 };
+      const fallback = (state.sonar.hotspots || []).find((spot) => spot.zone === state.currentZone && !spot.decoy);
+      return fallback ? { spot: fallback, strength: 1 } : null;
+    }
     const point = source === "auto" ? { x: 50, y: 62 } : castPointPercent();
     let closest = null; let closestDistance = Infinity;
     state.sonar.hotspots.forEach((spot) => { const distance = Math.hypot(point.x - spot.x, point.y - spot.y); if (distance <= spot.radius && distance < closestDistance) { closest = spot; closestDistance = distance; } });
@@ -1850,6 +2171,14 @@
     dom.gearSkillMode.textContent = mode === "auto" ? "协同释放" : "手动协同";
   }
   function renderSonarHotspots() {
+    if (isTextMode()) {
+      const hotspots = (state.sonar.hotspots || []).filter((spot) => spot.zone === state.currentZone);
+      if (dom.textTargetList) {
+        if (!hotspots.length) dom.textTargetList.innerHTML = `<span class="muted">等待声呐扫描…</span>`;
+        else dom.textTargetList.innerHTML = hotspots.map((spot) => { const active = spot.id === selectedTextHotspotId; return `<button type="button" data-text-hotspot="${spot.id}" class="${active ? "active" : ""}"><strong>${spot.decoy ? "珊瑚幻影" : HOTSPOT_TYPES[spot.type].name}</strong><small>${spot.decoy ? "干扰信号" : `收益 ${Math.round((spot.radius || 10))}% · ${Math.max(0, Math.ceil(((spot.expiresAt || Date.now()) - Date.now()) / 1000))}s`}</small></button>`; }).join("");
+      }
+      return;
+    }
     if (!dom.sonarLayer) return;
     const hotspots = (state.sonar.hotspots || []).filter((spot) => spot.zone === state.currentZone);
     const signature = hotspots.map((spot) => `${spot.id}:${spot.type}:${spot.decoy ? "d" : "n"}`).join("|");
@@ -1902,6 +2231,7 @@
     progress.bossCharge += amount;
     progress.mastery = Math.min(100, (Number(progress.mastery) || 0) + amount * 0.002);
     const bossDef = BOSS_DEFS[state.currentZone];
+    if (bossDef && progress.bossCharge >= bossDef.threshold) state.bossReady[state.currentZone] = true;
     if (!state.boss && bossDef && progress.bossCharge >= bossDef.threshold) {
       const hotspot = (state.sonar.hotspots || [])[0] || null;
       state.boss = {
@@ -1924,7 +2254,7 @@
         mechanicState: { lastKind: null, lastDecoyAt: 0 },
         phaseBuff: null,
         active: true,
-        expiresAt: Date.now() + 120000
+        expiresAt: Number.MAX_SAFE_INTEGER
       };
       showEventBanner("首领出现：" + bossDef.name, "第一阶段：追索移动弱点，手动撒网命中正确热点。", "rare", 5000);
       if (!state.bossTutorialSeen) { state.bossTutorialSeen = true; window.setTimeout(() => openModal("bossTutorial"), 420); saveGame(true); }
@@ -2145,6 +2475,29 @@
     }
   }
 
+  function canStarRebirth() { return Number(state.ascension?.count) >= 1; }
+  function getStarRebirthReward() {
+    return Math.max(1, Math.floor(Math.log10(state.totalGoldEarned + 10) * 8 + Number(state.ascension?.count || 0) * 4 + getTotalBossDefeated() * 2 + Number(state.dive?.completed || 0) * 2));
+  }
+  function performStarRebirth() {
+    if (!canStarRebirth()) { showToast("星海回归尚未解锁", "完成至少一次深渊跃迁后才能执行第二层重置。", "error"); return; }
+    const reward = getStarRebirthReward();
+    addResource("starCores", reward);
+    state.gold = 0;
+    state.inventory = {};
+    state.unlockedZones = ["shallow"];
+    state.currentZone = "shallow";
+    state.upgrades = Object.fromEntries(allNodes.map((node) => [node.id, 0]));
+    state.ascension.count = 0;
+    state.ascension.crystals = 0;
+    state.resources.crystals = 0;
+    state.ascension.research = Object.fromEntries(Object.keys(RESEARCH_DEFS).map((key) => [key, 0]));
+    state.ascension.protocols = {};
+    state.dive.active = null;
+    state.expedition.active = null;
+    appendTextLog(`星海回归完成：获得 ${reward} 枚星核。图鉴、装备、首领记录和样本永久保留。`, "legendary");
+    closeModal(); updateAllUI(); saveGame(true);
+  }
   function performAscension() {
     if (!canAscend()) return;
     const reward = getAscensionReward();
@@ -2231,7 +2584,7 @@
   }
 
   function getUpgradeCost(node, level = getLevel(node.id)) {
-    return Math.max(1, Math.floor(node.baseCost * Math.pow(1.48, level)));
+    return Math.max(1, Math.floor(node.baseCost * Math.pow(1.62, level)));
   }
 
   function getPrerequisites(node) {
@@ -2284,6 +2637,13 @@
   }
 
   function toggleAutoFish() {
+    if (isTextMode()) {
+      state.fleet.autoDive = !state.fleet.autoDive;
+      showToast(state.fleet.autoDive ? "舰队自动巡航已开启" : "舰队自动巡航已关闭", state.fleet.autoDive ? "自动只执行保守节点，收益约为手动的 45–60%。" : "深潜和基础产出将保持手动。", state.fleet.autoDive ? "success" : "info");
+      updateAllUI();
+      saveGame(true);
+      return;
+    }
     if (getAutoRate() <= 0) {
       showToast("自动捕鱼尚未解锁", "先升级小型拖网船，才能使用前台自动巡航。", "info");
       return;
@@ -2498,6 +2858,7 @@
   }
 
   function showCatchPop(text, tier = "normal", auto = false) {
+    if (isTextMode()) return;
     const pop = acquireEffect(dom.catchLayer, "div", "catch-pop");
     if (tier === "legendary") pop.classList.add("legendary");
     else if (tier === "rare") pop.classList.add("rare");
@@ -2510,6 +2871,7 @@
     window.setTimeout(() => releaseEffect(dom.catchLayer, pop, "div", "catch-pop"), 1500);
   }
   function showCastAnimation(fullScreen = false) {
+    if (isTextMode()) return;
     const rect = dom.seaPanel.getBoundingClientRect();
     if (pointerOrigin && rect.width && rect.height) {
       const x = clamp(((pointerOrigin.x - rect.left) / rect.width) * 100, 8, 92);
@@ -2533,6 +2895,7 @@
   }
 
   function showAutoCastAnimation() {
+    if (isTextMode()) return;
     if (!dom.seaPanel.classList.contains("auto-cast")) {
       dom.seaPanel.classList.remove("auto-cast");
       void dom.seaPanel.offsetWidth;
@@ -2577,6 +2940,7 @@
       if (source === "manual") {
         bumpVisualCombo(false);
         showCatchPop(hotspot ? "声呐热点内空网" : "空网 · 再试一次", "empty");
+        appendTextLog(hotspot ? "声呐热点内空网，未获得渔获。" : "空网，未获得渔获。", "info");
         if (dom.lastCastText) dom.lastCastText.textContent = "空网 · 调整落点";
         window.setTimeout(() => {
           triggerNetImpact(true);
@@ -2616,6 +2980,8 @@
     const latestFish = caughtSpecies[caughtSpecies.length - 1];
     const popTier = latestFish && latestFish.tier === "legendary" ? "legendary" : latestFish && latestFish.tier === "rare" ? "rare" : "normal";
     const sonarPrefix = hotspot ? (hotspot.type === "legendary" ? "传说回响 · " : hotspot.type === "rare" ? "稀有鱼群 · " : "声呐锁定 · ") : "";
+    const caughtNames = caughtSpecies.slice(0, 4).map((fish) => fish.name).join("、");
+    appendTextLog(`${source === "auto" ? "自动" : "手动"}${sonarPrefix}捕获 ${caught} 条${caughtNames ? `：${caughtNames}` : ""}`, popTier);
     if (source === "manual") {
       showCatchPop(`${sonarPrefix}+${caught} 条渔获`, popTier, false);
     } else if (hotspot || popTier !== "normal") {
@@ -2899,7 +3265,7 @@
         unlockedZones: Array.isArray(saved.unlockedZones) && saved.unlockedZones.length ? saved.unlockedZones : ["shallow"]
       };
 
-      state.version = 7;
+      state.version = 8;
       state.ascension = {
         ...base.ascension,
         ...(saved.ascension || {}),
@@ -2926,6 +3292,11 @@
         item.level = Math.min(10, Number(item.level) || 1);
       });
       state.sonar = { ...base.sonar, ...(saved.sonar || {}), hotspots: Array.isArray((saved.sonar || {}).hotspots) ? saved.sonar.hotspots : [], history: Array.isArray((saved.sonar || {}).history) ? saved.sonar.history : [] };
+      state.resources = { ...base.resources, ...(saved.resources || {}) };
+      state.dive = { ...base.dive, ...(saved.dive || {}), records: (saved.dive || {}).records || {}, active: (saved.dive || {}).active || null };
+      state.fleet = { ...base.fleet, ...(saved.fleet || {}) };
+      state.bossReady = { ...base.bossReady, ...(saved.bossReady || {}) };
+      state.textLog = Array.isArray(saved.textLog) ? saved.textLog.slice(-60) : [];
       const savedExpedition = saved.expedition && typeof saved.expedition === "object" ? saved.expedition : {};
       state.crew = { ...base.crew, ...(saved.crew || {}), assigned: Array.isArray(saved.crew?.assigned) ? saved.crew.assigned.filter((id) => CREW_DEFS.some((crew) => crew.id === id)).slice(0, 3) : ["runi"] };
       if (!state.crew.assigned.length) state.crew.assigned = ["runi"];
@@ -2991,7 +3362,7 @@
         target: Number(saved.boss.target) || 5,
         expiresAt: Number(saved.boss.expiresAt) || 0
       } : null;
-      state.ui = { ...base.ui, ...(saved.ui || {}) };
+      state.ui = { ...base.ui, ...(saved.ui || {}), textMode: true };
       state.profile = saved.profile && typeof saved.profile === "object" ? saved.profile : (window.LeaderboardBridge?.getProfile?.() || null);
       state.profileSetupSeen = Boolean(saved.profileSetupSeen);
       state.leaderboard = { ...base.leaderboard, ...(saved.leaderboard || {}), cache: (saved.leaderboard || {}).cache || {} };
@@ -3013,10 +3384,10 @@
       const lastSaved = Number(saved.lastSaved) || Date.now();
       const elapsed = Math.max(0, (Date.now() - lastSaved) / 1000);
       applyOfflineExpedition(elapsed);
-      if (!state.pendingOffline && elapsed >= OFFLINE_MIN_SECONDS) {
-        const capHours = (getLevel("ocean_fleet") > 0 ? 12 : 8) + getAllStatBonuses().offlineHours;
+      if (state.fleet?.autoDive && !state.pendingOffline && elapsed >= OFFLINE_MIN_SECONDS) {
+        const capHours = Math.min(72, getOfflineCapHours() + Math.max(0, Number(getAllStatBonuses().offlineHours) || 0));
         const cappedSeconds = Math.min(elapsed, capHours * 3600);
-        const amount = Math.floor(estimatedGoldPerSecond() * cappedSeconds);
+        const amount = Math.floor(getFleetIncomePerSecond() * cappedSeconds);
         if (amount >= 1) {
           state.pendingOffline = { amount, elapsedSeconds: elapsed, cappedSeconds, capHours };
         }
@@ -3032,7 +3403,7 @@
   }
 
   function fishArtMarkup(fish, className = "") {
-    return `<span class="fish-art ${className}"><img src="${fish.image}" alt="" loading="eager" decoding="async"><span class="fish-sheen"></span><span class="fish-pattern pattern-${fish.pattern || "none"}"></span></span>`;
+    return `<span class="fish-art text-fish-art ${className}"><b>${fish.tier === "legendary" ? "✦" : fish.tier === "rare" ? "◈" : "◉"}</b><span>${fish.name}</span></span>`;
   }
 
   function bindFishImage(element) {
@@ -3052,6 +3423,7 @@
   }
 
   function initSceneDecor() {
+    if (isTextMode()) return;
     const bubbleCount = 24;
     let bubbles = "";
     for (let i = 0; i < bubbleCount; i += 1) {
@@ -3070,6 +3442,7 @@
   }
 
   function refreshFishDecorColors() {
+    if (isTextMode()) return;
     const zoneSpecies = species.filter((fish) => fish.zone === state.currentZone);
     dom.fishField.querySelectorAll("[data-fish-deco]").forEach((element, index) => {
       const fish = zoneSpecies[index % zoneSpecies.length] || species[0];
@@ -3142,19 +3515,27 @@
     lastRenderedGold = state.gold;
     lastRenderedHold = hold;
     const autoRate = getAutoRate();
-    dom.incomeText.textContent = autoRate > 0 ? (state.ui.autofishEnabled ? `${formatNumber(income)} / 秒` : "自动待机") : "需拖网船";
+    const autoActive = isTextMode() ? Boolean(state.fleet?.autoDive) : Boolean(state.ui.autofishEnabled);
+    dom.incomeText.textContent = autoRate > 0 ? (autoActive ? `${formatNumber(income)} / 秒` : "自动待机") : "需拖网船";
     dom.zoneName.textContent = zone.name;
     const expedition = state.expedition?.active;
     const expeditionRoute = expedition ? getExpeditionRoute(expedition.routeId) : null;
     const expeditionRatio = getExpeditionProgressRatio(expedition);
-    if (expedition) {
-      dom.castPrompt.textContent = expedition.pendingNode ? "航线节点待处理" : expedition.expired ? "航线抵达 · 等待返航" : `航行中 · ${expeditionRoute.name}`;
-      dom.castEstimate.textContent = expedition.pendingNode ? `节点：${expedition.pendingNode.title} · ${Math.round(expeditionRatio * 100)}%` : `航程 ${Math.round(expeditionRatio * 100)}% · ${formatDuration(getExpeditionTimeRemaining(expedition))}`;
-      dom.seaTip.textContent = expedition.pendingNode ? "打开深渊航线完成节点选择，剩余航程会暂停推进。" : "在声呐热点内落网，航线进度与奖励会更快累积。";
+    if (isTextMode()) {
+      const diveNode = getDiveNode();
+      dom.castPrompt.textContent = state.dive?.active ? `深潜节点：${diveNode?.title || "返航"}` : "开始一次深潜行动";
+      dom.castEstimate.textContent = state.dive?.active ? "请在中央节点按钮中做出选择" : `当前海域 ${zone.name} · 行动收益按节点结算`;
+      dom.seaTip.textContent = "只有安全返航才会把本局货物带回港口。";
     } else {
-      dom.castPrompt.textContent = getLevel("sky_net") > 0 ? "天罗地网 · 全屏撒网" : "点击海面撒网";
-      dom.castEstimate.textContent = `每网约 ${low}–${high} 条鱼`;
-      dom.seaTip.textContent = "每次撒网都会将鱼存入鱼舱，售出后可升级舰载协议。";
+      if (expedition) {
+        dom.castPrompt.textContent = expedition.pendingNode ? "航线节点待处理" : expedition.expired ? "航线抵达 · 等待返航" : `航行中 · ${expeditionRoute.name}`;
+        dom.castEstimate.textContent = expedition.pendingNode ? `节点：${expedition.pendingNode.title} · ${Math.round(expeditionRatio * 100)}%` : `航程 ${Math.round(expeditionRatio * 100)}% · ${formatDuration(getExpeditionTimeRemaining(expedition))}`;
+        dom.seaTip.textContent = expedition.pendingNode ? "打开深渊航线完成节点选择，剩余航程会暂停推进。" : "在声呐热点内落网，航线进度与奖励会更快累积。";
+      } else {
+        dom.castPrompt.textContent = getLevel("sky_net") > 0 ? "天罗地网 · 全屏撒网" : "点击海面撒网";
+        dom.castEstimate.textContent = `每网约 ${low}–${high} 条鱼`;
+        dom.seaTip.textContent = "每次撒网都会将鱼存入鱼舱，售出后可升级舰载协议。";
+      }
     }
     dom.emptyRateText.textContent = `${Math.round(getEmptyChance() * 100)}%`;
     dom.rareRateText.textContent = `+${Math.round(getRareChance() * 100)}%`;
@@ -3162,9 +3543,11 @@
     dom.autoRateText.textContent = autoRate > 0 ? `${autoRate.toFixed(2)} 次/秒` : "未解锁";
     if (dom.autoFishToggle && dom.autoFishToggleText) {
       dom.autoFishToggle.disabled = autoRate <= 0;
-      dom.autoFishToggle.classList.toggle("active", Boolean(state.ui.autofishEnabled && autoRate > 0));
-      dom.autoFishToggle.setAttribute("aria-pressed", String(Boolean(state.ui.autofishEnabled && autoRate > 0)));
-      dom.autoFishToggleText.textContent = autoRate <= 0 ? "未解锁" : state.ui.autofishEnabled ? "运行中" : "关闭";
+      const autoAllowed = isTextMode() || autoRate > 0;
+      dom.autoFishToggle.disabled = !autoAllowed;
+      dom.autoFishToggle.classList.toggle("active", Boolean(autoActive && autoAllowed));
+      dom.autoFishToggle.setAttribute("aria-pressed", String(Boolean(autoActive && autoAllowed)));
+      dom.autoFishToggleText.textContent = !autoAllowed ? "未解锁" : autoActive ? "运行中" : "关闭";
     }
     dom.catchMultiplierText.textContent = `×${multiplier.toFixed(2)}`;
     dom.saleMultiplierText.textContent = `×${getSaleMultiplier(false).toFixed(2)}`;
@@ -3179,7 +3562,8 @@
     dom.speciesDockCount.textContent = `${getDiscoveredCount()}/${species.length}`;
     const contractReady = state.contracts.tasks.some((task) => (state.contracts.progress[task.id] || 0) >= task.target && !state.contracts.claimed[task.id]);
     dom.contractsButton.classList.toggle("has-reward", contractReady);
-    dom.bossButton.classList.toggle("has-encounter", Boolean(state.boss && state.boss.zone === state.currentZone));
+    dom.bossButton.classList.toggle("has-encounter", Boolean((state.boss && state.boss.zone === state.currentZone) || state.bossReady?.[state.currentZone]));
+    renderDiveDashboard();
     if (dom.expeditionButton && dom.expeditionStatus) {
       const expeditionAlert = Boolean(expedition?.pendingNode || expedition?.expired);
       dom.expeditionStatus.textContent = expedition ? (expedition.pendingNode ? "节点待命" : expedition.expired ? "可返航" : `${Math.round(expeditionRatio * 100)}%`) : "待部署";
@@ -3250,7 +3634,12 @@
       automation: ["基础船队","冷藏物流","自动贸易","航线 AI","无人军团","终极舰队","舰队智能","奇点船坞"],
       detection: ["基础声呐","加工科技","稀有探测","鱼群同步","异常预测","终极图鉴","生态雷达","巨兽回声"],
       fleet_synergy: ["装备接口","技能电容","无人机瞄准","超频核心","深潜船坞","旗舰核心","量子货舱","奇点舰队"],
-      leviathan: ["声呐档案","阶段破译","巨兽装甲","顶级声呐","巨兽诱饵","首领保底","深渊情报","巨兽精通"]
+      leviathan: ["声呐档案","阶段破译","巨兽装甲","顶级声呐","巨兽诱饵","首领保底","深渊情报","巨兽精通"],
+      dive_survival: ["氧气管理","船体修复","行动上限","风险规避","深潜补给","返航协议","极限下潜","生存精通"],
+      trade_economy: ["港口议价","合金贸易","样本定价","商船网络","航线折扣","深蓝市场","贸易协议","经济霸权"],
+      ecology_control: ["声呐维护","鱼群密度","生态监测","捕食压制","迁徙追踪","生态循环","平衡协议","深海共生"],
+      star_protocol: ["星核接口","重置记忆","协议缓存","星图校准","永久回声","起源档案","星海权限","原点协议"],
+      salvage_engineering: ["残骸扫描","打捞臂","合金精炼","船舱改造","自动拆解","深潜维修","蓝图解析","遗迹工程"]
     };
     const expandedBranch = branches.some((branch) => branch.id === state.ui.expandedBranch) ? state.ui.expandedBranch : "net_mastery";
     const expandedGroup = Number(state.ui.expandedGroup || 0);
@@ -3328,6 +3717,8 @@
 
   function updateAllUI() {
     updateDynamicUI(true);
+    renderTextLog();
+    renderDiveDashboard();
     renderZoneTabs();
     renderUpgradeTree();
     renderSonarHotspots();
@@ -3395,7 +3786,7 @@
                 const record = state.discovered[fish.id];
                 return `
                   <article class="species-card ${record ? "" : "locked"}">
-                    <div class="species-illustration ${fish.detail ? "detail" : ""}" style="--fish-color:${fish.color};--image-scale:${fish.imageScale || 1}"><img src="${fish.image}" alt="" loading="lazy" decoding="async"></div>
+                    <div class="species-illustration text-species-icon" style="--fish-color:${fish.color}"><b>${fish.tier === "legendary" ? "✦" : fish.tier === "rare" ? "◈" : "◉"}</b><small>${fish.name.slice(0, 1)}</small></div>
                     <h4>${fish.name}</h4>
                     <div class="species-meta"><span>${speciesTierName(fish.tier)}</span><span class="species-price">${formatNumber(fish.basePrice * zone.priceMult)} 金币</span></div>
                     <div class="species-meta"><span>捕获总数</span><span>${formatInteger(record ? record.count : 0)}</span></div>
@@ -3427,7 +3818,7 @@
         const completeCount = state.contracts.tasks.filter((task) => (state.contracts.progress[task.id] || 0) >= task.target).length;
         title = "每日深海委托";
         subtitle = `${state.contracts.date} · 已完成 ${completeCount} / ${state.contracts.tasks.length}，奖励每日只能领取一次。`;
-        panel = `<div class="contract-grid">${state.contracts.tasks.map((task) => { const progress = Math.min(task.target, state.contracts.progress[task.id] || 0); const ratio = task.target ? progress / task.target : 0; const claimed = Boolean(state.contracts.claimed[task.id]); const ready = progress >= task.target && !claimed; return `<article class="contract-card ${ready ? "ready" : ""} ${claimed ? "claimed" : ""}"><div class="contract-card-head"><span class="contract-glyph">${task.type === "boss" ? "☠" : task.type === "hotspot" ? "◉" : task.type === "expedition" ? "⌁" : "▤"}</span><div><small>深海委托</small><h3>${task.title}</h3></div></div><div class="contract-progress"><i style="width:${Math.round(ratio * 100)}%"></i></div><div class="contract-progress-copy"><span>${formatNumber(progress)} / ${formatNumber(task.target)}</span><strong>${claimed ? "已领取" : ready ? "可领取" : `${Math.round(ratio * 100)}%`}</strong></div><div class="contract-reward"><span>结晶 +${task.reward.crystals}</span><span>合金 +${task.reward.alloy}</span></div><button class="modal-button ${ready ? "primary" : ""}" type="button" data-claim-contract="${task.id}" ${ready ? "" : "disabled"}>${claimed ? "已结算" : ready ? "领取奖励" : "进行中"}</button></article>`; }).join("")}</div><p class="muted">委托按设备本地日期生成。完成奖励还会推进装备保底进度。</p>`;
+        panel = `<div class="contract-grid">${state.contracts.tasks.map((task) => { const progress = Math.min(task.target, state.contracts.progress[task.id] || 0); const ratio = task.target ? progress / task.target : 0; const claimed = Boolean(state.contracts.claimed[task.id]); const ready = progress >= task.target && !claimed; return `<article class="contract-card ${ready ? "ready" : ""} ${claimed ? "claimed" : ""}"><div class="contract-card-head"><span class="contract-glyph">${task.type === "boss" ? "☠" : task.type === "hotspot" ? "◉" : (task.type === "dive" || task.type === "expedition") ? "⌁" : "▤"}</span><div><small>深海委托</small><h3>${task.title}</h3></div></div><div class="contract-progress"><i style="width:${Math.round(ratio * 100)}%"></i></div><div class="contract-progress-copy"><span>${formatNumber(progress)} / ${formatNumber(task.target)}</span><strong>${claimed ? "已领取" : ready ? "可领取" : `${Math.round(ratio * 100)}%`}</strong></div><div class="contract-reward"><span>结晶 +${task.reward.crystals}</span><span>合金 +${task.reward.alloy}</span></div><button class="modal-button ${ready ? "primary" : ""}" type="button" data-claim-contract="${task.id}" ${ready ? "" : "disabled"}>${claimed ? "已结算" : ready ? "领取奖励" : "进行中"}</button></article>`; }).join("")}</div><p class="muted">委托按设备本地日期生成。完成奖励还会推进装备保底进度。</p>`;
       }
       body = tabBar + panel;
       footer = `<button class="modal-button" type="button" data-modal-close>关闭</button>`;
@@ -3487,7 +3878,7 @@
           <span><small>已击败</small><strong>${progress.bossDefeated}</strong></span>
         </div>
         <p class="muted">成功击败必掉史诗装备，并有 25% 概率额外获得传说装备。任何失误都不会回退阶段进度。</p>
-      </div><div class="boss-part-strip">${bossParts}</div><div class="boss-phase-checklist">${phaseCards}</div><div class="boss-record-strip"><span><small>本海域击败</small><strong>${bossRecord.kills || 0}</strong></span><span><small>最佳完美终结</small><strong>${Number(bossRecord.bestPerfect || 0).toFixed(2)}</strong></span><span><small>最快击杀</small><strong>${bossRecord.fastestSeconds ? formatDuration(bossRecord.fastestSeconds) : "尚未完成"}</strong></span><span><small>熔铸材料</small><strong>◉ ${getBossMaterialCount("sonarShard")} · ⬡ ${getBossMaterialCount("armorPlate")} · ✦ ${getBossMaterialCount("voidHeart")}</strong></span></div>`;
+      </div><div class="boss-part-strip">${bossParts}</div><div class="boss-phase-checklist">${phaseCards}</div>${boss ? `<button class="modal-button primary boss-text-action" type="button" data-boss-action="${boss.phase}">${boss.phase === 1 ? "执行声呐锁定" : boss.phase === 2 ? "执行护甲破译" : "执行终结收网"}</button>` : ""}<div class="boss-record-strip"><span><small>本海域击败</small><strong>${bossRecord.kills || 0}</strong></span><span><small>最佳完美终结</small><strong>${Number(bossRecord.bestPerfect || 0).toFixed(2)}</strong></span><span><small>最快击杀</small><strong>${bossRecord.fastestSeconds ? formatDuration(bossRecord.fastestSeconds) : "尚未完成"}</strong></span><span><small>熔铸材料</small><strong>◉ ${getBossMaterialCount("sonarShard")} · ⬡ ${getBossMaterialCount("armorPlate")} · ✦ ${getBossMaterialCount("voidHeart")}</strong></span></div>`;
       footer = `<button class="modal-button" type="button" data-boss-archive>查看巨兽档案</button><button class="modal-button primary" type="button" data-modal-close>${boss ? "返回海面锁定声呐" : "继续捕捞"}</button>`;
     }
 
@@ -3563,7 +3954,13 @@
         return `<article class="boss-archive-card ${defeated ? "defeated" : discovered ? "discovered" : "unknown"}" style="--boss-color:${zone.id === "rift" ? "#ff744d" : zone.id === "void" ? "#b58cff" : "#67e8f9"}"><div class="boss-archive-head"><span>${def.icon}</span><div><small>${zone.subtitle} · ${zone.name}</small><h3>${def.name}</h3></div><b>${defeated ? `击败 ${record.kills} 次` : discovered ? "已发现" : "未发现"}</b></div><p>${mechanic.description}</p><div class="boss-archive-metrics"><span><small>最快击杀</small><strong>${record.fastestSeconds ? formatDuration(record.fastestSeconds) : "--:--"}</strong></span><span><small>最佳完美终结</small><strong>${Number(record.bestPerfect || 0).toFixed(2)}</strong></span><span><small>首领蓄能</small><strong>${formatInteger(bossProgress.bossCharge)} / ${formatInteger(def.threshold)}</strong></span></div><div class="boss-archive-hints">${mechanic.hints.map((hint, index) => `<span>${index + 1}. ${hint}</span>`).join("")}</div></article>`;
       }).join("")}</div>`;
       footer = `<button class="modal-button primary" type="button" data-modal-close>返回海域</button>`;
-    }    if (activeModal.type === "profile") {
+    }    if (activeModal.type === "fleet") {
+      title = "舰队航行";
+      subtitle = "舰队负责离线基础产出，主动深潜负责稀有样本、首领材料和星核。";
+      body = `<div class="text-console-card"><div class="text-metric"><span>舰队等级</span><strong>Lv.${state.fleet.level || 0}</strong></div><div class="text-metric"><span>当前产速</span><strong>${formatNumber(getFleetIncomePerSecond())} / 秒</strong></div><div class="text-metric"><span>离线上限</span><strong>${getOfflineCapHours()} 小时</strong></div><div class="text-metric"><span>自动深潜</span><strong>${state.fleet.autoDive ? "保守巡航" : "关闭"}</strong></div><div class="text-metric"><span>永久样本</span><strong>${formatInteger(getResourceCount("samples"))}</strong></div><div class="text-metric"><span>星核</span><strong>${formatNumber(getResourceCount("starCores"))}</strong></div></div><p class="muted">自动模式只执行安全节点，收益约为手动的 45–60%，不会替玩家挑战首领或高风险路线。</p>`;
+      footer = `<button class="modal-button" type="button" data-toggle-fleet>${state.fleet.autoDive ? "关闭自动巡航" : "开启自动巡航"}</button><button class="modal-button primary" type="button" data-upgrade-fleet>升级舰队 · ${formatNumber(getFleetUpgradeCost())} 金币</button>`;
+    }
+    if (activeModal.type === "profile") {
       const configured = Boolean(window.LeaderboardBridge?.isConfigured?.());
       title = "调查员档案";
       subtitle = configured ? "档案用于在线排行和成绩同步，不会上传完整本地存档。" : "当前为离线档案模式；配置 Supabase 后即可参与在线排行。";
@@ -3578,7 +3975,7 @@
 
     if (activeModal.type === "leaderboard") {
       const configured = Boolean(window.LeaderboardBridge?.isConfigured?.());
-      const boards = [["captain","综合舰长榜"],["gold","金币航迹榜"],["depth","深潜进度榜"],["boss","首领猎杀榜"],["ascension","跃迁序列榜"]];
+      const boards = [["captain","综合舰长榜"],["gold","金币航迹榜"],["depth","海域进度榜"],["boss","首领猎杀榜"],["ascension","跃迁序列榜"],["dive","深潜评分榜"]];
       const board = state.leaderboard?.board || "captain";
       const cache = state.leaderboard?.cache?.[board] || { entries: [], offline: true, fetchedAt: 0 };
       const entries = Array.isArray(cache.entries) ? cache.entries : [];
@@ -3602,7 +3999,7 @@
       subtitle = "本地打包的 CC0、CC-BY 与 MIT 素材来源。";
       body = `
         <div class="credits-list">
-          <article><strong>Three.js 0.149 / 0.186 sources</strong><p>three.js authors · MIT License · WebGL 渲染与 GLB 解析</p></article>
+          <article><strong>纯文字增量版</strong><p>当前版本不加载 Three.js、GLB、鱼类图片或海洋动画。</p></article>
           <article><strong>Quaternius Fish</strong><p>CC0 · poly.pizza/m/BEcU9rjiAq · poly.pizza/m/XWl86YFtpF</p></article>
           <article><strong>Poly by Google</strong><p>CC-BY 3.0 · Fish、Goldfish、Shark 模型 · poly.pizza</p></article>
           <article><strong>jeremy</strong><p>CC-BY 3.0 · Blowfish 模型 · poly.pizza</p></article>
@@ -3690,8 +4087,8 @@
         const unlocked = isProtocolUnlocked(protocol.id);
         return `<article class="protocol-card ${unlocked ? "unlocked" : "locked"}"><span>${protocol.icon}</span><div><small>${protocol.count} 次跃迁解锁</small><strong>${protocol.name}</strong><p>${protocol.description}</p></div><em>${unlocked ? "已激活" : "未激活"}</em></article>`;
       }).join("");
-      body = `<div class="ascension-summary"><span>终极技能 ${getUltimateCount()} / 3</span><span>累计首领 ${getTotalBossDefeated()}</span><span>航线等级 ${Number(state.expedition?.masteryLevel) || 0}</span><span>本次跃迁奖励 ${reward} 结晶</span></div><div class="ascension-detail"><div><small>跃迁会重置</small><strong>金币 · 鱼舱 · 普通海域 · 80 个普通天赋</strong><p>装备、图鉴、成就、科研、协议、首领奖杯与跃迁次数永久保留。</p></div></div><h3 class="modal-subheading">永久科研</h3><div class="research-list">${researchCards}</div><h3 class="modal-subheading">深潜协议</h3><div class="protocol-list">${protocolCards}</div>`;
-      footer = `<button class="modal-button primary" type="button" data-ascend ${canAscend() ? "" : "disabled"}>${canAscend() ? `执行跃迁 · +${reward} 结晶` : "需激活三个终极技能"}</button>`;
+      body = `<div class="ascension-summary"><span>终极技能 ${getUltimateCount()} / 3</span><span>星核 ${formatNumber(getResourceCount("starCores"))}</span><span>累计首领 ${getTotalBossDefeated()}</span><span>航线等级 ${Number(state.expedition?.masteryLevel) || 0}</span><span>本次跃迁奖励 ${reward} 结晶</span></div><div class="ascension-detail"><div><small>跃迁会重置</small><strong>金币 · 鱼舱 · 普通海域 · ${allNodes.length} 个普通天赋</strong><p>装备、图鉴、成就、科研、协议、首领奖杯与跃迁次数永久保留。</p></div></div><h3 class="modal-subheading">永久科研</h3><div class="research-list">${researchCards}</div><h3 class="modal-subheading">深潜协议</h3><div class="protocol-list">${protocolCards}</div>`;
+      footer = `<button class="modal-button" type="button" data-star-rebirth ${canStarRebirth() ? "" : "disabled"}>${canStarRebirth() ? `星海回归 · +${getStarRebirthReward()} 星核` : "星海回归未解锁"}</button><button class="modal-button primary" type="button" data-ascend ${canAscend() ? "" : "disabled"}>${canAscend() ? `执行跃迁 · +${reward} 结晶` : "需激活三个终极技能"}</button>`;
     }
     if (activeModal.type === "offline") {
       const data = state.pendingOffline;
@@ -3782,8 +4179,10 @@
     const now = Date.now();
     const delta = clamp((now - lastTick) / 1000, 0, 1.5);
     lastTick = now;
+    runFleetTick(delta);
+    autoResolveDive(now);
     const interactionAllowed = isInteractionAllowed();
-    const liveAllowed = interactionAllowed && Boolean(state.ui?.autofishEnabled);
+    const liveAllowed = !isTextMode() && interactionAllowed && Boolean(state.ui?.autofishEnabled);
 
     if (!interactionAllowed) keyboardCasting = false;
     if (keyboardCasting && interactionAllowed) {
@@ -3821,6 +4220,10 @@
     if (event.code === "Space" || event.key === " ") {
       if (activeModal || dom.upgradeDrawer.classList.contains("open")) return false;
       event.preventDefault();
+      if (isTextMode()) {
+        if (state.dive?.active) { const node = getDiveNode(); const safe = node?.choices?.find((choice) => !["push", "challenge", "deeper"].includes(choice.id)) || node?.choices?.[0]; if (safe) resolveDiveChoice(safe.id); } else startDive();
+        return true;
+      }
       if (state.boss?.phase === 3 && Date.now() <= state.boss.finisherWindowUntil) {
         pointerOrigin = null;
         performCast("manual");
@@ -3847,12 +4250,10 @@
     if (key === "c") { openModal("encyclopedia"); return true; }
     if (key === "g") { openModal("equipment"); return true; }
     if (key === "q") { openModal("contracts"); return true; }
-    if (key === "x") { openModal("expedition"); return true; }
+    if (key === "x") { openModal("fleet"); return true; }
     if (key === "k") { openModal("guide"); return true; }
     if (key === "v") { toggleAutoFish(); return true; }
     if (key === "b") { openModal("boss"); return true; }
-    if (key === "l") { openLeaderboard(); return true; }
-    if (key === "p") { openModal("profile"); return true; }
     if (key === "h") { showKeyboardHint(); return true; }
     if (key === "m") { toggleMute(); return true; }
     if (["r", "t", "y"].includes(key)) {
@@ -3877,8 +4278,12 @@
       const rect = dom.seaPanel.getBoundingClientRect();
       pointerOrigin = { x: rect.left + rect.width / 2, y: rect.top + rect.height * .64 };
     });
-    dom.castButton.addEventListener("click", () => performCast("manual"));
+    dom.castButton.addEventListener("click", () => { if (isTextMode()) { if (state.dive?.active) { const node = getDiveNode(); const safe = node?.choices?.find((choice) => !["push", "challenge", "deeper"].includes(choice.id)) || node?.choices?.[0]; if (safe) resolveDiveChoice(safe.id); } else startDive(); return; } performCast("manual"); });
     dom.autoFishToggle?.addEventListener("click", toggleAutoFish);
+    dom.textCastButton?.addEventListener("click", () => state.dive?.active ? resolveDiveChoice(getDiveNode()?.choices?.[0]?.id || "cast") : startDive());
+    dom.diveNodeActions?.addEventListener("click", (event) => { const startButton = event.target.closest("[data-dive-start]"); const choiceButton = event.target.closest("[data-dive-choice]"); if (startButton) startDive(); else if (choiceButton) resolveDiveChoice(choiceButton.dataset.diveChoice); });
+    dom.clearTextLog?.addEventListener("click", () => { state.textLog = []; renderTextLog(); saveGame(true); });
+    dom.textTargetList?.addEventListener("click", (event) => { const button = event.target.closest("[data-text-hotspot]"); if (!button) return; selectedTextHotspotId = button.dataset.textHotspot; renderSonarHotspots(); });
     dom.sellButton.addEventListener("click", () => sellAll(false));
     dom.processButton.addEventListener("click", processFish);
 
@@ -3953,7 +4358,6 @@
     });
     dom.upgradeTree.addEventListener("scroll", scheduleTreeLineDraw, { passive: true });
     window.addEventListener("resize", scheduleTreeLineDraw);
-    window.addEventListener("tide:3d-ready", () => { window.Tide3D?.setPerformanceProfile?.(state.ui.performanceProfile || "auto"); emitTide("tide:fish-density", { count: window.innerWidth <= 760 ? 28 : 36 }); });
     document.addEventListener("pointermove", (event) => {
       const glass = event.target.closest?.(".rail-card,.topbar,.bottom-dock,.upgrade-drawer,.modal-shell,.keyboard-hint");
       if (!glass) return;
@@ -3973,10 +4377,8 @@
     dom.contractsButton.addEventListener("click", () => openModal("contracts"));
     dom.ecologyHud?.addEventListener("click", () => openModal("ecology"));
     dom.guideButton?.addEventListener("click", () => openModal("guide"));
-    dom.expeditionButton?.addEventListener("click", () => openModal("expedition"));
+    dom.expeditionButton?.addEventListener("click", () => openModal("fleet"));
     dom.bossButton.addEventListener("click", () => openModal("boss"));
-    dom.leaderboardButton.addEventListener("click", openLeaderboard);
-    dom.profileButton.addEventListener("click", () => openModal("profile"));
     dom.ascensionButton.addEventListener("click", () => openModal("ascension"));
     dom.keyboardToggle.addEventListener("click", toggleKeyboardGuide);
     dom.railBackdrop?.addEventListener("click", () => {
@@ -4013,6 +4415,9 @@
       const journalClaimButton = event.target.closest("[data-claim-journal]");
       const researchButton = event.target.closest("[data-research]");
       const ascendButton = event.target.closest("[data-ascend]");
+      const starRebirthButton = event.target.closest("[data-star-rebirth]");
+      const bossChallengeButton = event.target.closest("[data-boss-challenge]");
+      const bossActionButton = event.target.closest("[data-boss-action]");
       const equipButton = event.target.closest("[data-equip-gear]");
       const upgradeGearButton = event.target.closest("[data-upgrade-gear]");
       const forgeGearButton = event.target.closest("[data-forge-gear]");
@@ -4029,6 +4434,8 @@
       const refreshLeaderboardButton = event.target.closest("[data-leaderboard-refresh]");
       const bossToggle = event.target.closest("[data-boss-toggle]");
       const bossArchiveButton = event.target.closest("[data-boss-archive]");
+      const toggleFleetButton = event.target.closest("[data-toggle-fleet]");
+      const upgradeFleetButton = event.target.closest("[data-upgrade-fleet]");
       const expeditionRouteButton = event.target.closest("[data-expedition-route]");
       const expeditionCrewButton = event.target.closest("[data-expedition-crew]");
       const expeditionChoiceButton = event.target.closest("[data-expedition-choice]");
@@ -4045,7 +4452,10 @@
       if (expeditionReturnButton) finishExpedition(!state.expedition?.active?.expired);
       if (unlockButton) unlockZone(unlockButton.dataset.unlockZone);
       if (researchButton) buyResearch(researchButton.dataset.research);
-      if (ascendButton) performAscension();      if (tabButton) { state.ui.equipmentTab = tabButton.dataset.equipTab; renderModal(); }
+      if (ascendButton) performAscension();
+      if (starRebirthButton) performStarRebirth();
+      if (bossChallengeButton) { startBossChallenge(state.currentZone); renderModal(); }
+      if (bossActionButton) { const boss = state.boss; if (!boss) return; const phase = Number(bossActionButton.dataset.bossAction); if (phase === 1) { const target = (state.sonar.hotspots || []).find((spot) => spot.id === boss.weakpointId) || { id: boss.weakpointId || "text-weakpoint", type: "rare", x: 50, y: 58 }; advanceBossProgress({ spot: target, strength: 1 }, "manual", { x: 50, y: 58 }, { hasRare: false, hasLegendary: false, caught: 1 }); } else if (phase === 2) { advanceBossProgress(null, "manual", { x: 50, y: 58 }, { hasRare: true, hasLegendary: false, caught: 2 }); } else { advanceBossProgress(null, "manual", { x: 50, y: 58 }, { hasRare: false, hasLegendary: true, caught: 1 }); } renderModal(); updateAllUI(); saveGame(true); }      if (tabButton) { state.ui.equipmentTab = tabButton.dataset.equipTab; renderModal(); }
       if (skillModeButton) { state.equipment.skillMode = state.equipment.skillMode === "manual" ? "auto" : "manual"; renderModal(); renderGearSkillHud(); saveGame(true); }
       if (loadoutButton) {
         const skillId = loadoutButton.dataset.skillLoadout;
@@ -4065,6 +4475,8 @@
       if (refreshLeaderboardButton) openLeaderboard();
       if (bossToggle) { state.ui.bossBannerExpanded = !state.ui.bossBannerExpanded; renderBossHud(); }
       if (bossArchiveButton) { activeModal = { type: "bossArchive", payload: {} }; renderModal(); }
+      if (toggleFleetButton) { state.fleet.autoDive = !state.fleet.autoDive; renderModal(); updateAllUI(); saveGame(true); }
+      if (upgradeFleetButton) upgradeFleet();
       if (upgradeGearButton) upgradeEquipment(upgradeGearButton.dataset.upgradeGear);
       if (forgeGearButton) forgeBossEquipment(forgeGearButton.dataset.forgeGear);
       if (crewAssignButton) toggleCrew(crewAssignButton.dataset.crewAssign);
@@ -4081,6 +4493,8 @@
     document.addEventListener("click", (event) => {
       const skillButton = event.target.closest("[data-gear-skill]");
       const modeButton = event.target.closest("[data-gear-skill-mode]");
+      const textNav = event.target.closest("[data-text-nav]");
+      if (textNav) { const page = textNav.dataset.textNav; state.ui.textPage = page; saveGame(true); document.querySelectorAll("[data-text-nav]").forEach((button) => button.classList.toggle("active", button === textNav)); if (page === "fleet") openModal("fleet"); else if (page === "growth") openDrawer(); else if (page === "archive") openModal("encyclopedia"); else document.querySelector("#textDashboard")?.scrollIntoView({ block: "start" }); return; }
       if (skillButton) activateGearSkill(skillButton.dataset.gearSkill, true);
       if (modeButton) {
         state.equipment.skillMode = state.equipment.skillMode === "manual" ? "auto" : "manual";
@@ -4100,6 +4514,7 @@
   }
 
   function initWaterShimmers() {
+    if (isTextMode()) return;
     if (!dom.shimmerField) return;
     let markup = "";
     for (let i = 0; i < 34; i += 1) {
@@ -4143,6 +4558,7 @@
   }
 
   function startAmbientEffects() {
+    if (isTextMode()) return;
     const schedule = () => {
       spawnJumpingFish();
       window.setTimeout(schedule, fxBetween(3600, 7200));
@@ -4224,9 +4640,6 @@
     updateEcology(0);
     renderGearSkillHud();
     renderBossHud();
-    initSceneDecor();
-    initWaterShimmers();
-    startAmbientEffects();
     bindEvents();
     updateAllUI();
     updateRailState("left", state.ui.leftPanelOpen, state.ui.leftPanelPinned);
@@ -4235,8 +4648,7 @@
     if (window.innerWidth <= 900) { state.ui.keyGuideCollapsed = true; updateKeyboardGuide(); } else if (state.ui.keyGuideCollapsed) updateKeyboardGuide(); else showKeyboardHint(true);
     saveGame(true);
 
-    ensureCaptainProfile();
-    if (state.profile && !state.ui.guideSeen) window.setTimeout(() => { if (!activeModal) openModal("guide"); }, 1100);
+    if (!state.ui.guideSeen) window.setTimeout(() => { if (!activeModal) openModal("guide"); }, 1100);
     checkPublishedVersion();
     registerOfflineApp();
     if (state.crew?.lastOfflineGain > 0) {
@@ -4256,6 +4668,7 @@
   initGame();
 
   function showFloatingText(text, type = "gain", anchor = null, yOffset = 0) {
+    if (isTextMode()) return;
     const element = document.createElement("div");
     element.className = `float-text ${type}`;
     element.textContent = text;
@@ -4271,6 +4684,7 @@
   }
 
   function flashScreen(type = "gold") {
+    if (isTextMode()) return;
     dom.screenFlash.className = "screen-flash";
     void dom.screenFlash.offsetWidth;
     dom.screenFlash.classList.add(type);
@@ -4278,6 +4692,7 @@
   }
 
   function glowEdge(type = "gold") {
+    if (isTextMode()) return;
     dom.edgeGlow.className = "edge-glow";
     void dom.edgeGlow.offsetWidth;
     dom.edgeGlow.classList.add(type);
@@ -4294,6 +4709,7 @@
   }
 
   function showCriticalText(label, type = "crit") {
+    if (isTextMode()) return;
     const rect = dom.seaPanel.getBoundingClientRect();
     const element = document.createElement("div");
     element.className = `critical-text ${type}`;
@@ -4308,6 +4724,7 @@
   }
 
   function triggerImpact(type = "normal", origin = null) {
+    if (isTextMode()) return;
     if (type === "normal" && Date.now() - lastNormalImpactAt < 180) return;
     if (type === "normal") lastNormalImpactAt = Date.now();
     emitTide("tide:impact", { type, origin });
@@ -4352,6 +4769,7 @@
     }, config.duration + 80);
   }
   function triggerNetImpact(empty = false) {
+    if (isTextMode()) return;
     emitTide("tide:net-impact", { empty });
     const className = empty ? "empty-impact" : "impact-active";
     window.clearTimeout(netImpactTimer);
@@ -4364,6 +4782,7 @@
   }
 
   function emitSplash(count = 14, empty = false) {
+    if (isTextMode()) return;
     const maxDrops = window.innerWidth <= 760 ? 8 : 12;
     count = Math.min(count, maxDrops);
     trimFx(dom.splashField, ".splash-drop", maxDrops + 4);
@@ -4384,6 +4803,7 @@
     return cachedHoldTarget;
   }
   function flyFishToHold(count, tier = "normal", caughtSpecies = []) {
+    if (isTextMode()) return;
     trimFx(dom.effectRoot, ".fish-spark", 8);
     const source = pointerOrigin || (() => {
       const rect = dom.seaPanel.getBoundingClientRect();
