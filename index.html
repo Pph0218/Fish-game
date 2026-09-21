@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#020817">
   <title>潮汐渔场 · 深渊回声</title>
-  <link rel="stylesheet" href="styles.css?v=20260921-05">
+  <link rel="stylesheet" href="styles.css?v=20260921-06">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
-  <div class="app" id="app" data-zone="shallow" data-app-version="20260921-05">
+  <div class="app" id="app" data-zone="shallow" data-app-version="20260921-06">
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">
@@ -100,34 +100,7 @@
       <button class="rail-pin" id="leftRailPin" type="button" data-rail-pin="left">固定展开</button>
         </div></aside>
 
-      <section class="sea-panel" id="seaPanel" aria-label="捕鱼海面">
-        <div class="sea-sky">
-          <div class="sun-orb"></div>
-          <div class="cloud cloud-a"></div>
-          <div class="cloud cloud-b"></div>
-          <div class="horizon-line"></div>
-        </div>
-
-        <div class="water-layer">
-          <div class="wave-band wave-band-back"></div>
-          <div class="wave-band wave-band-mid"></div>
-          <div class="wave-band wave-band-front"></div>
-          <div class="light-beams" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-          <div class="shimmer-field" id="shimmerField" aria-hidden="true"></div>
-          <div class="caustic caustic-a"></div>
-          <div class="caustic caustic-b"></div>
-          <div class="bubble-field" id="bubbleField" aria-hidden="true"></div>
-          <div class="sonar-layer" id="sonarLayer" aria-hidden="true"></div>
-          <div class="fish-field" id="fishField" aria-hidden="true"></div>
-        </div>
-
-        <button class="sea-interaction" id="seaButton" type="button" aria-label="点击海面撒网">
-          <span class="cast-net net-expand" aria-hidden="true"></span>
-          <span class="cast-net net-retract" aria-hidden="true"></span>
-          <span class="impact-wave" aria-hidden="true"></span>
-          <span class="splash-field" id="splashField" aria-hidden="true"></span>
-        </button>
-        <div class="catch-layer" id="catchLayer" aria-live="polite"></div>
+      <section class="sea-panel text-mode-panel" id="seaPanel" aria-label="深潜文字工作台">
         <div class="text-dashboard" id="textDashboard">
           <header class="text-dashboard-head">
             <div>
@@ -135,7 +108,7 @@
               <h2 id="textDashboardZone">岸边浅滩</h2>
               <p id="textDashboardSubtitle">深潜行动待命 · 没有动画，只记录结果</p>
             </div>
-            <button class="text-cast-button" id="textCastButton" type="button">执行行动</button>
+            <button class="text-cast-button" id="textCastButton" type="button">开始深潜</button>
           </header>
           <nav class="text-workbench-nav" aria-label="文字工作台导航"><button type="button" data-text-nav="dive" class="active">深潜</button><button type="button" data-text-nav="fleet">舰队</button><button type="button" data-text-nav="growth">成长</button><button type="button" data-text-nav="archive">档案</button></nav>
           <div class="text-dashboard-grid">
@@ -143,20 +116,20 @@
               <small>本次行动</small>
               <div class="text-metric"><span>氧气</span><strong id="diveOxygenMetric">100%</strong></div>
               <div class="text-metric"><span>船体</span><strong id="diveHullMetric">100%</strong></div>
-              <div class="text-metric"><span>货舱</span><strong id="diveCargoMetric">0 / 50</strong></div>
+              <div class="text-metric"><span>货舱</span><strong id="diveCargoMetric">0 / 18</strong></div>
               <div class="text-metric"><span>行动评分</span><strong id="diveScoreMetric">0</strong></div>
             </article>
             <article class="text-console-card">
               <small>当前节点</small>
               <h3 id="diveNodeTitle">准备开始深潜</h3>
-              <p id="diveNodeText">从港口选择海域、补给和装备，然后启动一次 8–12 分钟的深潜行动。</p>
-              <div class="text-node-actions" id="diveNodeActions"></div>
+              <p id="diveNodeText">点击开始深潜，进入 5–8 个文字节点。失败只损失本局未返航货物。</p>
+              <div class="text-node-actions" id="diveNodeActions"><button type="button" data-dive-start>开始深潜</button></div>
             </article>
             <article class="text-console-card">
               <small>舰队产出</small>
               <div class="text-metric"><span>基础收益</span><strong id="fleetIncomeMetric">0 / 秒</strong></div>
               <div class="text-metric"><span>离线上限</span><strong id="fleetOfflineMetric">24 小时</strong></div>
-              <div class="text-metric"><span>自动路线</span><strong id="fleetModeMetric">保守巡航</strong></div>
+              <div class="text-metric"><span>自动路线</span><strong id="fleetModeMetric">手动深潜</strong></div>
               <div class="text-metric"><span>永久样本</span><strong id="sampleMetric">0</strong></div>
             </article>
           </div>
@@ -277,7 +250,7 @@
   </div>
   <div class="modal-layer" id="modalLayer" role="presentation"></div>
   <div class="toast-root" id="toastRoot" aria-live="polite"></div>
-  <script src="audio.js?v=20260921-05"></script>
-  <script src="app.js?v=20260921-05"></script>
+  <script src="audio.js?v=20260921-06"></script>
+  <script src="app.js?v=20260921-06"></script>
 </body>
 </html>

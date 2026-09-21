@@ -1,10 +1,10 @@
-const CACHE_NAME = "tide-fishery-text-v20260921-05";
+const CACHE_NAME = "tide-fishery-text-v20260921-06";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20260921-05",
-  "./audio.js?v=20260921-05",
-  "./app.js?v=20260921-05",
+  "./styles.css?v=20260921-06",
+  "./audio.js?v=20260921-06",
+  "./app.js?v=20260921-06",
   "./manifest.webmanifest",
   "./version.json"
 ];

@@ -3124,6 +3124,7 @@
   }
 
   function startZoneScanTransition() {
+    if (isTextMode()) return;
     window.clearTimeout(zoneScanTimer);
     dom.app.classList.remove("zone-scan");
     void dom.app.offsetWidth;
@@ -4270,10 +4271,10 @@
     return false;
   }
   function bindEvents() {
-    dom.seaButton.addEventListener("pointerdown", (event) => {
+    dom.seaButton?.addEventListener("pointerdown", (event) => {
       pointerOrigin = { x: event.clientX, y: event.clientY };
     });
-    dom.seaButton.addEventListener("click", () => performCast("manual"));
+    dom.seaButton?.addEventListener("click", () => performCast("manual"));
     dom.castButton.addEventListener("pointerdown", () => {
       const rect = dom.seaPanel.getBoundingClientRect();
       pointerOrigin = { x: rect.left + rect.width / 2, y: rect.top + rect.height * .64 };
